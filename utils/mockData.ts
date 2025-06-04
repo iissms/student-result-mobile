@@ -3,7 +3,7 @@ import { User, Result, Subject, Student, PerformanceTrend } from '@/types';
 export const mockUsers: User[] = [
   {
     id: '1',
-    name: 'John Smith',
+    name: 'Johnn Smith',
     email: 'student@example.com',
     role: 'student',
     avatar: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=256',
