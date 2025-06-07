@@ -7,6 +7,7 @@ export interface User {
   class?: string;
   studentId?: string; // For students
   children?: Student[]; // For parents
+  collegeId: string;
 }
 
 export interface Student {

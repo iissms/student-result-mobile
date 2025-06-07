@@ -1,11 +1,12 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { AuthState, User } from '@/types';
-import { mockUsers } from '@/utils/mockData';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import {jwtDecode} from 'jwt-decode'; // 👈 decode JWT
 
 type AuthContextType = {
   authState: AuthState;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
 };
 
@@ -18,25 +19,38 @@ const initialState: AuthState = {
 export const AuthContext = createContext<AuthContextType>({
   authState: initialState,
   login: async () => {},
-  logout: () => {},
+  logout: async () => {},
   isAuthenticated: false,
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [authState, setAuthState] = useState<AuthState>(initialState);
-  
+
   useEffect(() => {
-    // Check if user is already logged in (e.g., from AsyncStorage)
     const checkAuth = async () => {
       try {
-        // In a real app, we would check for tokens in AsyncStorage
-        // For demo, set isLoading to false after a delay
-        setTimeout(() => {
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          const decoded: any = jwtDecode(token);
+
+          const user: User = {
+            id: decoded.user_id,
+            role: decoded.role,
+            collegeId: decoded.college_id,
+            token: token,
+          };
+
+          setAuthState({
+            user,
+            isLoading: false,
+            error: null,
+          });
+        } else {
           setAuthState(prev => ({
             ...prev,
             isLoading: false,
           }));
-        }, 1000);
+        }
       } catch (error) {
         setAuthState({
           user: null,
@@ -45,10 +59,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
     };
-    
+
     checkAuth();
   }, []);
-  
+
   const login = async (email: string, password: string) => {
     try {
       setAuthState(prev => ({
@@ -56,25 +70,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading: true,
         error: null,
       }));
-      
-      // Mock authentication - in a real app, this would be an API call
-      const user = mockUsers.find(u => u.email === email);
-      
-      if (!user) {
-        throw new Error('Invalid credentials');
+
+      const response = await fetch('http://194.238.23.60:5007/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Invalid email or password');
       }
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
+      const data = await response.json();
+
+      const { token } = data;
+
+      await AsyncStorage.setItem('token', token);
+
+      const decoded: any = jwtDecode(token);
+
+      const user: User = {
+        id: decoded.user_id,
+        role: decoded.role,
+        collegeId: decoded.college_id,
+        token: token,
+      };
+
       setAuthState({
         user,
         isLoading: false,
         error: null,
       });
-      
-      // In a real app, save tokens to AsyncStorage
-      
+
     } catch (error) {
       setAuthState({
         user: null,
@@ -83,16 +112,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
     }
   };
-  
-  const logout = () => {
-    // In a real app, clear tokens from AsyncStorage
-    setAuthState({
-      user: null,
-      isLoading: false,
-      error: null,
-    });
+
+  const logout = async () => {
+    try {
+      await AsyncStorage.removeItem('token');
+      setAuthState({
+        user: null,
+        isLoading: false,
+        error: null,
+      });
+    } catch (error) {
+      console.error('Failed to logout:', error);
+    }
   };
-  
+
   return (
     <AuthContext.Provider
       value={{
