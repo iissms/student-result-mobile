@@ -2,19 +2,47 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { COLORS, FONTS, SPACING } from '@/utils/constants';
-import { mockResults } from '@/utils/mockData';
 import Header from '@/components/shared/Header';
 import Card from '@/components/ui/Card';
-import SubjectGradeList from '@/components/results/SubjectGradeList';
-import { getGradeColor, formatDate, getSubjectWithHighestMarks, getSubjectWithLowestMarks } from '@/utils/helpers';
 import { Award, Calendar, FileText, Clock, School, TriangleAlert as AlertTriangle } from 'lucide-react-native';
 
+// Helper Functions
+const getGradeFromPercentage = (percent: number): string => {
+  if (percent >= 90) return 'A+';
+  if (percent >= 80) return 'A';
+  if (percent >= 70) return 'B+';
+  if (percent >= 60) return 'B';
+  if (percent >= 50) return 'C';
+  if (percent >= 35) return 'D';
+  return 'F';
+};
+
+const getGradeColor = (grade: string): string => {
+  switch (grade) {
+    case 'A+':
+    case 'A':
+      return COLORS.primary[500];
+    case 'B+':
+    case 'B':
+      return COLORS.primary[500];
+    case 'C':
+      return COLORS.warning[500];
+    case 'D':
+      return COLORS.warning[500];
+    default:
+      return COLORS.error[500];
+  }
+};
+
+const formatDate = (dateString: string) => {
+  const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+  return new Date(dateString).toLocaleDateString(undefined, options);
+};
+
 export default function ResultDetailsScreen() {
-  const { resultId } = useLocalSearchParams<{ resultId: string }>();
-  
-  const result = mockResults.find(r => r.id === resultId);
-  
-  if (!result) {
+  const { exam: examString } = useLocalSearchParams<{ exam: string }>();
+
+  if (!examString) {
     return (
       <View style={styles.container}>
         <Header title="Result Details" showBackButton />
@@ -25,90 +53,105 @@ export default function ResultDetailsScreen() {
       </View>
     );
   }
-  
-  const bestSubject = getSubjectWithHighestMarks(result.subjects);
-  const weakestSubject = getSubjectWithLowestMarks(result.subjects);
-  
+
+  // Parse the exam details
+  const exam = JSON.parse(decodeURIComponent(examString));
+
+  const obtainedMarks = exam.subjects.reduce((sum: number, sub: any) => sum + sub.marks_obtained, 0);
+  const totalMarks = exam.marks || 100;
+  const percentage = Math.round((obtainedMarks / totalMarks) * 100);
+  const grade = getGradeFromPercentage(percentage);
+
+  // Find strongest and weakest subject
+  const bestSubject = exam.subjects.reduce((prev: any, current: any) => (prev.marks_obtained > current.marks_obtained ? prev : current));
+  const weakestSubject = exam.subjects.reduce((prev: any, current: any) => (prev.marks_obtained < current.marks_obtained ? prev : current));
+
   return (
     <View style={styles.container}>
       <Header title="Result Details" showBackButton />
-      
+
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <Card style={styles.headerCard}>
-          <Text style={styles.examName}>{result.examName}</Text>
-          <Text style={styles.examTerm}>{result.term}</Text>
-          
+          <Text style={styles.examName}>{exam.name}</Text>
+          <Text style={styles.examTerm}>{exam.status}</Text>
+
           <View style={styles.gradeContainer}>
             <View style={styles.gradeCircle}>
-              <Text style={[styles.grade, { color: getGradeColor(result.grade) }]}>
-                {result.grade}
+              <Text style={[styles.grade, { color: getGradeColor(grade) }]}>
+                {grade}
               </Text>
             </View>
             <View style={styles.percentageContainer}>
-              <Text style={styles.percentageValue}>{result.percentage}%</Text>
+              <Text style={styles.percentageValue}>{percentage}%</Text>
               <Text style={styles.percentageLabel}>Overall Score</Text>
             </View>
           </View>
-          
+
           <View style={styles.infoRow}>
             <View style={styles.infoItem}>
               <Calendar size={16} color={COLORS.gray[500]} />
-              <Text style={styles.infoText}>
-                Exam Date: {formatDate(result.examDate)}
-              </Text>
+              <Text style={styles.infoText}>Exam Date: {formatDate(exam.start_date)}</Text>
             </View>
             <View style={styles.infoItem}>
               <FileText size={16} color={COLORS.gray[500]} />
-              <Text style={styles.infoText}>
-                Released: {formatDate(result.releaseDate)}
-              </Text>
+              <Text style={styles.infoText}>End Date: {formatDate(exam.end_date)}</Text>
             </View>
           </View>
-          
-          {result.rank && (
-            <View style={styles.rankContainer}>
-              <Award size={20} color={COLORS.primary[500]} />
-              <Text style={styles.rankText}>
-                Class Rank: <Text style={styles.rankValue}>{result.rank}</Text>
-              </Text>
-            </View>
-          )}
         </Card>
-        
+
+        {/* Subject Breakdown */}
         <View style={styles.subjectSection}>
           <Text style={styles.sectionTitle}>Subject Breakdown</Text>
-          <SubjectGradeList subjects={result.subjects} />
+          {exam.subjects.map((subject: any) => {
+            const subjectPercentage = Math.round((subject.marks_obtained / exam.marks) * 100);
+            const subjectGrade = getGradeFromPercentage(subjectPercentage);
+            return (
+              <View key={subject.subject_id} style={styles.subjectRow}>
+                <View>
+                  <Text style={styles.subjectName}>{subject.subject_name}</Text>
+                  <Text style={styles.subjectType}>{subject.type}</Text>
+                </View>
+                <View style={styles.subjectMarksContainer}>
+                  <Text style={styles.subjectMarks}>
+                    {subject.marks_obtained} / {exam.marks}
+                  </Text>
+                  <Text style={[styles.subjectGrade, { color: getGradeColor(subjectGrade) }]}>{subjectGrade}</Text>
+                </View>
+              </View>
+            );
+          })}
         </View>
-        
+
+        {/* Analytics */}
         <Card style={styles.analyticsCard}>
           <Text style={styles.analyticsTitle}>Performance Analytics</Text>
-          
+
           <View style={styles.analyticsItem}>
             <View style={styles.analyticsIcon}>
               <Award size={20} color={COLORS.accent[500]} />
             </View>
             <View style={styles.analyticsContent}>
               <Text style={styles.analyticsItemTitle}>Strongest Subject</Text>
-              <Text style={styles.analyticsSubject}>{bestSubject.subjectName}</Text>
+              <Text style={styles.analyticsSubject}>{bestSubject.subject_name}</Text>
               <Text style={styles.analyticsScore}>
-                Score: {bestSubject.percentage}% (Grade {bestSubject.grade})
+                Score: {bestSubject.marks_obtained}/{exam.marks} ({getGradeFromPercentage(Math.round((bestSubject.marks_obtained / exam.marks) * 100))})
               </Text>
             </View>
           </View>
-          
+
           <View style={styles.analyticsItem}>
             <View style={styles.analyticsIcon}>
               <AlertTriangle size={20} color={COLORS.error[500]} />
             </View>
             <View style={styles.analyticsContent}>
               <Text style={styles.analyticsItemTitle}>Area for Improvement</Text>
-              <Text style={styles.analyticsSubject}>{weakestSubject.subjectName}</Text>
+              <Text style={styles.analyticsSubject}>{weakestSubject.subject_name}</Text>
               <Text style={styles.analyticsScore}>
-                Score: {weakestSubject.percentage}% (Grade {weakestSubject.grade})
+                Score: {weakestSubject.marks_obtained}/{exam.marks} ({getGradeFromPercentage(Math.round((weakestSubject.marks_obtained / exam.marks) * 100))})
               </Text>
             </View>
           </View>
-          
+
           <View style={styles.analyticsItem}>
             <View style={styles.analyticsIcon}>
               <School size={20} color={COLORS.primary[500]} />
@@ -116,12 +159,12 @@ export default function ResultDetailsScreen() {
             <View style={styles.analyticsContent}>
               <Text style={styles.analyticsItemTitle}>Overall Performance</Text>
               <Text style={styles.analyticsDescription}>
-                You scored {result.percentage}% overall with a grade of {result.grade}, 
-                which is {result.percentage > 75 ? 'above' : 'below'} the average.
+                You scored {percentage}% overall with a grade of {grade},
+                which is {percentage > 75 ? 'above' : 'below'} the average.
               </Text>
             </View>
           </View>
-          
+
           <View style={styles.analyticsItem}>
             <View style={styles.analyticsIcon}>
               <Clock size={20} color={COLORS.primary[500]} />
@@ -129,7 +172,7 @@ export default function ResultDetailsScreen() {
             <View style={styles.analyticsContent}>
               <Text style={styles.analyticsItemTitle}>Performance Over Time</Text>
               <Text style={styles.analyticsDescription}>
-                Your performance has improved by 5% compared to the last examination.
+                Your performance has improved compared to the last examination.
               </Text>
             </View>
           </View>
@@ -217,24 +260,6 @@ const styles = StyleSheet.create({
     color: COLORS.gray[700],
     marginLeft: SPACING.xs,
   },
-  rankContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.primary[50],
-    paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 16,
-    marginTop: SPACING.md,
-  },
-  rankText: {
-    fontFamily: FONTS.medium,
-    fontSize: 16,
-    color: COLORS.primary[700],
-    marginLeft: SPACING.xs,
-  },
-  rankValue: {
-    fontFamily: FONTS.bold,
-  },
   subjectSection: {
     marginVertical: SPACING.md,
   },
@@ -243,7 +268,35 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: COLORS.gray[900],
     marginBottom: SPACING.sm,
-    marginLeft: SPACING.xs,
+  },
+  subjectRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[200],
+  },
+  subjectName: {
+    fontFamily: FONTS.medium,
+    fontSize: 16,
+    color: COLORS.gray[900],
+  },
+  subjectType: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.gray[600],
+  },
+  subjectMarksContainer: {
+    alignItems: 'flex-end',
+  },
+  subjectMarks: {
+    fontFamily: FONTS.medium,
+    fontSize: 14,
+    color: COLORS.gray[800],
+  },
+  subjectGrade: {
+    fontFamily: FONTS.bold,
+    fontSize: 14,
   },
   analyticsCard: {
     marginVertical: SPACING.md,

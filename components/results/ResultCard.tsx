@@ -41,8 +41,10 @@ export default function ResultCard({ exam, compact = false }: ResultCardProps) {
   const handlePress = () => {
     router.push({
       pathname: '/(tabs)/(stacks)/result-details',
-      params: { examId: exam.exam_id, studentId: '8' }
-    });
+      params: { 
+        exam: encodeURIComponent(JSON.stringify(exam)), // safer
+        studentId: '8'
+      },    });
   };
 
   if (compact) {
