@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { ArrowLeft, Bell, Settings } from 'lucide-react-native';
 import { COLORS, FONTS, SPACING } from '@/utils/constants';
 import { useAuth } from '@/contexts/AuthContext';
+import { SafeAreaView } from 'react-native-safe-area-context'; // 👈 ADD THIS
 
 interface HeaderProps {
   title: string;
@@ -44,8 +45,7 @@ export default function Header({
   };
   
   return (
-    <View style={styles.container}>
-      <StatusBar backgroundColor="#FFFFFF" barStyle="dark-content" />
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
         <View style={styles.leftContainer}>
           {showBackButton && (
@@ -70,14 +70,13 @@ export default function Header({
           )}
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
+  safeArea: {
+    backgroundColor: '#FFFFFF', // Background of the header
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[200],
   },
@@ -88,7 +87,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     backgroundColor: '#FFFFFF',
-    height: Platform.OS === 'ios' ? 44 : 56,
+    height: 56,
   },
   leftContainer: {
     flexDirection: 'row',

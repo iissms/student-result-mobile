@@ -10,6 +10,7 @@ import PerformanceChart from '@/components/dashboard/PerformanceChart';
 import SubjectPerformance from '@/components/dashboard/SubjectPerformance';
 import Header from '@/components/shared/Header';
 import { ChevronRight, Calendar, Bell } from 'lucide-react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; // 👈
 
 // --- Type Definitions (Updated to include new fields) ---
 
@@ -182,8 +183,8 @@ export default function Dashboard() {
   }
 
   return (
-    <View style={styles.container}>
-      <Header 
+<SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+<Header 
         title="Dashboard" 
         showNotification 
         showSettings
@@ -266,7 +267,7 @@ export default function Dashboard() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </View>
+      </SafeAreaView>
   );
 }
 
