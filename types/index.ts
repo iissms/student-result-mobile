@@ -1,13 +1,14 @@
 export interface User {
   id: string;
-  name: string;
-  email: string;
+  name?: string;
+  email?: string;
   role: 'student' | 'parent';
   avatar?: string;
   class?: string;
   studentId?: string; // For students
   children?: Student[]; // For parents
   collegeId: string;
+  token?: string; // JWT token for authentication
 }
 
 export interface Student {
