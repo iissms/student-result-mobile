@@ -37,14 +37,14 @@ export default function LoginForm() {
     <View style={styles.container}>
       <View style={styles.roleToggleContainer}>
         <TouchableOpacity
-          activeOpacity={0.9}
+          activeOpacity={0.85}
           style={[styles.roleButton, role === 'student' && styles.activeRoleButton]}
           onPress={() => setRole('student')}
         >
           <Text style={[styles.roleText, role === 'student' && styles.activeRoleText]}>Student</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          activeOpacity={0.9}
+          activeOpacity={0.85}
           style={[styles.roleButton, role === 'parent' && styles.activeRoleButton]}
           onPress={() => setRole('parent')}
         >
@@ -93,22 +93,15 @@ export default function LoginForm() {
           style={styles.loginButton}
         />
 
-        <View style={styles.divider} />
-
         <View style={styles.demoContainer}>
-          <TouchableOpacity
-            style={styles.demoButton}
-            onPress={toggleRole}
-            activeOpacity={0.85}
-          >
-            <UserCheck size={20} color={COLORS.primary[500]} />
+          <TouchableOpacity style={styles.demoButton} onPress={toggleRole} activeOpacity={0.85}>
+            <UserCheck size={18} color={COLORS.primary[600]} />
             <Text style={styles.demoButtonText}>
               Switch to {role === 'student' ? 'Parent' : 'Student'} Demo
             </Text>
           </TouchableOpacity>
-
           <Text style={styles.demoText}>
-            For demo: use {role === 'student' ? 'student@example.com' : 'parent@example.com'} and 'password'
+            For demo use {role === 'student' ? 'student@example.com' : 'parent@example.com'} and 'password'
           </Text>
         </View>
       </View>
@@ -122,25 +115,25 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     paddingVertical: SPACING.xl,
     paddingHorizontal: SPACING.lg,
-    backgroundColor: 'rgba(255,255,255,0.98)',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(28,109,208,0.08)',
+    borderColor: 'rgba(12, 71, 161, 0.08)',
     ...Platform.select({
       ios: {
         shadowColor: '#0B2A5B',
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.08,
-        shadowRadius: 14,
+        shadowOpacity: 0.1,
+        shadowRadius: 16,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
       web: {
         shadowColor: '#0B2A5B',
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.08,
-        shadowRadius: 14,
+        shadowOpacity: 0.1,
+        shadowRadius: 16,
       },
     }),
   },
@@ -149,35 +142,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.gray[100],
     borderRadius: 14,
     padding: 4,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   roleButton: {
     flex: 1,
-    paddingVertical: SPACING.sm + 2,
+    paddingVertical: SPACING.sm,
     borderRadius: 10,
     alignItems: 'center',
   },
   activeRoleButton: {
-    backgroundColor: COLORS.primary[50],
-    borderWidth: 1,
-    borderColor: COLORS.primary[300],
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.12,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-      web: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.12,
-        shadowRadius: 4,
-      },
-    }),
+    backgroundColor: COLORS.primary[500],
   },
   roleText: {
     fontFamily: FONTS.medium,
@@ -185,7 +159,7 @@ const styles = StyleSheet.create({
     color: COLORS.gray[600],
   },
   activeRoleText: {
-    color: COLORS.primary[700],
+    color: '#FFFFFF',
   },
   subtitle: {
     fontFamily: FONTS.regular,
@@ -211,26 +185,21 @@ const styles = StyleSheet.create({
   loginButton: {
     marginTop: SPACING.sm,
   },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.gray[200],
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.md,
-  },
   demoContainer: {
-    alignItems: 'center',
-    backgroundColor: COLORS.gray[100],
+    marginTop: SPACING.lg,
+    backgroundColor: COLORS.primary[50],
     borderRadius: 12,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.md,
     borderWidth: 1,
-    borderColor: 'rgba(28,109,208,0.08)',
+    borderColor: COLORS.primary[100],
+    alignItems: 'center',
   },
   demoButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.sm,
   },
