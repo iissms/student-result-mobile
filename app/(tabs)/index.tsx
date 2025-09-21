@@ -1,7 +1,10 @@
-// index.tsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Calendar, ChevronRight } from 'lucide-react-native';
+
 import { COLORS, FONTS, SPACING } from '@/utils/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { mockPerformanceTrends, classAverages, subjectPerformance } from '@/utils/mockData';
@@ -9,12 +12,7 @@ import ResultsSummary from '@/components/dashboard/ResultsSummary';
 import PerformanceChart from '@/components/dashboard/PerformanceChart';
 import SubjectPerformance from '@/components/dashboard/SubjectPerformance';
 import Header from '@/components/shared/Header';
-import { ChevronRight, Calendar, Bell } from 'lucide-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; // 👈
-const { authState } = useAuth(); // 👈 make sure you access authState.user.token
-// --- Type Definitions (Updated to include new fields) ---
 
-// The 'Result' type that your ResultsSummary component expects as a prop
 export interface Result {
   id: string;
   studentId: string;
@@ -26,7 +24,7 @@ export interface Result {
   obtainedMarks: number;
   percentage: number;
   grade: string;
-  rank?: number; // Optional
+  rank?: number;
   subjects: {
     subjectId: string;
     subjectName: string;
@@ -58,220 +56,278 @@ export interface ApiExamResult {
   subjects: ApiSubjectDetail[];
 }
 
-// ✅ Update StudentResultsApiResponse to match your API response
 export interface StudentResultsApiResponse {
   currentPage: number;
   pageSize: number;
   totalRecords: number;
-  results: ApiExamResult[]; // <-- important
+  results: ApiExamResult[];
 }
 
-// --- End Type Definitions ---
-
+const UPCOMING_EVENTS = [
+  { id: 'finals', title: 'Final examinations', date: 'Starts May 15, 2024' },
+  { id: 'ptm', title: 'Parent & teacher check-in', date: 'May 20, 2024' },
+  { id: 'sports', title: 'Inter-house athletics day', date: 'June 02, 2024' },
+];
 
 export default function Dashboard() {
   const router = useRouter();
   const { authState } = useAuth();
-  
+
   const [latestResult, setLatestResult] = useState<Result | null>(null);
   const [loadingResults, setLoadingResults] = useState(true);
   const [errorResults, setErrorResults] = useState<string | null>(null);
 
-  // Hardcoding studentId to '8' for demonstration purposes.
-  // In a real application, this should dynamically come from authState.user.studentId.
-  const studentId = '11'; 
+  const studentId = authState.user?.studentId ?? '11';
 
-  // Helper function to calculate grade based on percentage
   const calculateGrade = (percentage: number): string => {
     if (percentage >= 90) return 'A+';
     if (percentage >= 80) return 'A';
     if (percentage >= 70) return 'B+';
     if (percentage >= 60) return 'B';
     if (percentage >= 50) return 'C';
-    return 'F'; // Fail
+    return 'F';
   };
 
   const fetchAndProcessStudentResults = useCallback(async () => {
     setLoadingResults(true);
     setErrorResults(null);
-  
+
     try {
       if (!authState.user?.token) {
         throw new Error('No authentication token found');
       }
-  
-      // Prepare query parameters: page=1, limit=1 (to fetch only latest record)
-    const page = 1;
-    const limit = 1;
 
-    const response = await fetch(`http://194.238.23.60:5007/api/results/student?page=${page}&limit=${limit}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authState.user.token}`,
-          'Content-Type': 'application/json',
+      const page = 1;
+      const limit = 1;
+
+      const response = await fetch(
+        `http://194.238.23.60:5007/api/results/student?page=${page}&limit=${limit}`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${authState.user.token}`,
+            'Content-Type': 'application/json',
+          },
         },
-      });
-  
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-  
+
       const data: StudentResultsApiResponse = await response.json();
-      console.log("Fetched results data:", data);
-  
+
       if (data.results.length === 0) {
         setLatestResult(null);
         return;
       }
-  
+
       const sortedExams = [...data.results].sort((a, b) => b.exam_id - a.exam_id);
-      const latestExam: ApiExamResult = sortedExams[0];
-  
+      const latestExam = sortedExams[0];
+
       let totalObtainedMarks = 0;
       const totalMaxMarks = latestExam.marks;
-  
+      const assumedMaxPerSubject =
+        latestExam.subjects.length > 0 ? latestExam.marks / latestExam.subjects.length : 100;
+
       const subjectsForSummary = latestExam.subjects.map(subjectApiData => {
         totalObtainedMarks += subjectApiData.marks_obtained;
-        const maxMarksPerSubjectForDisplay = 10; // or any logic to fetch real max marks
-        const subjectPercentage = (subjectApiData.marks_obtained / maxMarksPerSubjectForDisplay) * 100;
-  
+        const maxMarksForDisplay = Math.max(
+          assumedMaxPerSubject,
+          subjectApiData.marks_obtained,
+        );
+        const subjectPercentage = maxMarksForDisplay
+          ? (subjectApiData.marks_obtained / maxMarksForDisplay) * 100
+          : 0;
+
         return {
           subjectId: String(subjectApiData.subject_id),
           subjectName: subjectApiData.subject_name,
-          maxMarks: maxMarksPerSubjectForDisplay,
+          maxMarks: maxMarksForDisplay,
           obtainedMarks: subjectApiData.marks_obtained,
           percentage: subjectPercentage,
           grade: calculateGrade(subjectPercentage),
         };
       });
-  
+
       const overallPercentage = totalMaxMarks > 0 ? (totalObtainedMarks / totalMaxMarks) * 100 : 0;
-  
+
       const transformedResult: Result = {
         id: `exam-${latestExam.exam_id}-${studentId}`,
-        studentId: studentId,
+        studentId,
         examName: latestExam.name,
         examDate: latestExam.start_date,
-        term: "Latest Term",
-        academicYear: "2024-2025",
+        term: 'Latest Term',
+        academicYear: '2024-2025',
         totalMarks: totalMaxMarks,
         obtainedMarks: totalObtainedMarks,
         percentage: overallPercentage,
         grade: calculateGrade(overallPercentage),
-        rank: undefined,
         subjects: subjectsForSummary,
         releaseDate: latestExam.end_date ?? '',
       };
-  
+
       setLatestResult(transformedResult);
-  
     } catch (error) {
-      console.error("Failed to fetch student results:", error);
-      setErrorResults("Failed to load results. Please check your network connection or try again.");
+      console.error('Failed to fetch student results:', error);
+      setErrorResults('Failed to load results. Please try again later.');
     } finally {
       setLoadingResults(false);
     }
-  }, []);
-  
+  }, [authState.user?.token, studentId]);
 
   useEffect(() => {
     if (!authState.user) {
-      router.replace('/'); 
-    } else {
-      fetchAndProcessStudentResults(); 
+      router.replace('/');
+      return;
     }
-  }, [authState.user, router, fetchAndProcessStudentResults]);
+
+    fetchAndProcessStudentResults();
+  }, [authState.user, fetchAndProcessStudentResults, router]);
+
+  const firstName = authState.user?.name?.split(' ')[0] ?? 'there';
+  const avatarUrl = authState.user?.avatar;
+  const avatarInitials = useMemo(() => {
+    if (!authState.user?.name) {
+      return 'ST';
+    }
+
+    return authState.user.name
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(part => part[0]?.toUpperCase() ?? '')
+      .join('');
+  }, [authState.user?.name]);
+
+  const quickStats = useMemo(
+    () => [
+      {
+        label: 'Overall score',
+        value: latestResult ? `${Math.round(latestResult.percentage)}%` : '--',
+      },
+      {
+        label: 'Grade',
+        value: latestResult ? latestResult.grade : '--',
+      },
+      {
+        label: 'Subjects tracked',
+        value: latestResult ? `${latestResult.subjects.length}` : '--',
+      },
+    ],
+    [latestResult],
+  );
 
   if (!authState.user) {
     return null;
   }
 
   return (
-<SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
-<Header 
-        title="Dashboard" 
-        showNotification 
-        showSettings
-      />
-      
-      <ScrollView 
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <Header title="Dashboard" showNotification showSettings />
+
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.greeting}>
-          <View>
-            <Text style={styles.welcome}>Welcome back,</Text>
-            <Text style={styles.userName}>{authState.user.name}</Text>
+        <LinearGradient
+          colors={[COLORS.primary[600], COLORS.primary[500], COLORS.primary[400]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroCard}
+        >
+          <View style={styles.heroHeader}>
+            <View style={styles.heroTextGroup}>
+              <Text style={styles.heroGreeting}>Welcome back,</Text>
+              <Text style={styles.heroName}>{firstName}</Text>
+              <Text style={styles.heroSubtitle}>
+                Here’s a quick overview of your current academic performance.
+              </Text>
+            </View>
+            {avatarUrl ? (
+              <Image source={{ uri: avatarUrl }} style={styles.heroAvatar} />
+            ) : (
+              <View style={styles.heroAvatarFallback}>
+                <Text style={styles.heroAvatarFallbackText}>{avatarInitials}</Text>
+              </View>
+            )}
           </View>
-          <Image 
-            source={{ uri: authState.user.avatar }} 
-            style={styles.avatar} 
-          />
-        </View>
-        
-        <View style={styles.cardSection}>
+
+          <View style={styles.statRow}>
+            {quickStats.map((stat, index) => (
+              <View
+                key={stat.label}
+                style={[styles.statCard, index !== quickStats.length - 1 && styles.statCardSpacing]}
+              >
+                <Text style={styles.statValue}>{stat.value}</Text>
+                <Text style={styles.statLabel}>{stat.label}</Text>
+              </View>
+            ))}
+          </View>
+        </LinearGradient>
+
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Latest Result</Text>
-            <TouchableOpacity 
-              style={styles.viewAll}
+            <Text style={styles.sectionTitle}>Latest result</Text>
+            <TouchableOpacity
+              style={styles.sectionAction}
               onPress={() => router.push('/(tabs)/results')}
             >
-              <Text style={styles.viewAllText}>View All</Text>
-              <ChevronRight size={16} color={COLORS.primary[500]} />
+              <Text style={styles.sectionActionText}>See all</Text>
+              <ChevronRight size={16} color={COLORS.primary[500]} style={styles.sectionActionIcon} />
             </TouchableOpacity>
           </View>
-          
-          {loadingResults ? (
-            <ActivityIndicator size="large" color={COLORS.primary[500]} style={styles.loadingIndicator} />
-          ) : errorResults ? (
-            <Text style={styles.errorText}>{errorResults}</Text>
-          ) : latestResult ? (
-            <ResultsSummary result={latestResult} />
-          ) : (
-            <Text style={styles.noResultsText}>No results available yet for student ID {studentId}.</Text>
-          )}
-        </View>
-        
-        {/* These sections still use mock data as they are not tied to the results API */}
-        <View style={styles.cardSection}>
-          <Text style={styles.sectionTitle}>Performance Trends</Text>
-          <PerformanceChart 
-            data={mockPerformanceTrends}
-            classAverages={classAverages}
-          />
-        </View>
-        
-        <View style={styles.cardSection}>
-          <Text style={styles.sectionTitle}>Subject Performance</Text>
-          <SubjectPerformance data={subjectPerformance} />
-        </View>
-        
-        <View style={styles.announcements}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Events</Text>
+
+          <View style={styles.surfaceCard}>
+            {loadingResults ? (
+              <ActivityIndicator size="large" color={COLORS.primary[500]} style={styles.loader} />
+            ) : errorResults ? (
+              <Text style={styles.stateText}>{errorResults}</Text>
+            ) : latestResult ? (
+              <ResultsSummary result={latestResult} />
+            ) : (
+              <Text style={styles.stateText}>No results available just yet.</Text>
+            )}
           </View>
-          
-          <TouchableOpacity style={styles.eventCard}>
-            <Calendar size={24} color={COLORS.primary[500]} />
-            <View style={styles.eventInfo}>
-              <Text style={styles.eventTitle}>Final Examination</Text>
-              <Text style={styles.eventDate}>Starts on May 15, 2024</Text>
-            </View>
-            <Bell size={20} color={COLORS.gray[400]} />
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={styles.eventCard}>
-            <Calendar size={24} color={COLORS.primary[500]} />
-            <View style={styles.eventInfo}>
-              <Text style={styles.eventTitle}>Parent-Teacher Meeting</Text>
-              <Text style={styles.eventDate}>May 20, 2024</Text>
-            </View>
-            <Bell size={20} color={COLORS.gray[400]} />
-          </TouchableOpacity>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Performance overview</Text>
+          <View style={styles.surfaceCard}>
+            <PerformanceChart data={mockPerformanceTrends} classAverages={classAverages} />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Subject focus</Text>
+          <View style={styles.surfaceCard}>
+            <SubjectPerformance data={subjectPerformance} />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Upcoming events</Text>
+          <View style={styles.surfaceCard}>
+            {UPCOMING_EVENTS.map((event, index) => (
+              <View
+                key={event.id}
+                style={[styles.eventRow, index !== 0 && styles.eventRowDivider]}
+              >
+                <View style={styles.eventIcon}>
+                  <Calendar size={18} color={COLORS.primary[500]} />
+                </View>
+                <View style={styles.eventInfo}>
+                  <Text style={styles.eventTitle}>{event.title}</Text>
+                  <Text style={styles.eventDate}>{event.date}</Text>
+                </View>
+                <ChevronRight size={16} color={COLORS.gray[400]} />
+              </View>
+            ))}
+          </View>
         </View>
       </ScrollView>
-      </SafeAreaView>
+    </SafeAreaView>
   );
 }
 
@@ -284,106 +340,172 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.xxl,
+    paddingTop: SPACING.md,
   },
-  greeting: {
+  heroCard: {
+    borderRadius: 24,
+    padding: SPACING.lg,
+    shadowColor: '#1D1C1D',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 4,
+    marginBottom: SPACING.xl,
+  },
+  heroHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: SPACING.lg,
-    paddingHorizontal: SPACING.xs,
   },
-  welcome: {
+  heroTextGroup: {
+    flex: 1,
+    paddingRight: SPACING.md,
+  },
+  heroGreeting: {
+    fontFamily: FONTS.medium,
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 4,
+  },
+  heroName: {
+    fontFamily: FONTS.bold,
+    fontSize: 26,
+    color: COLORS.gray[50],
+  },
+  heroSubtitle: {
     fontFamily: FONTS.regular,
-    fontSize: 16,
-    color: COLORS.gray[600],
+    fontSize: 14,
+    lineHeight: 20,
+    color: 'rgba(255,255,255,0.82)',
+    marginTop: SPACING.xs,
   },
-  userName: {
+  heroAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  heroAvatarFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.32)',
+  },
+  heroAvatarFallbackText: {
     fontFamily: FONTS.bold,
     fontSize: 20,
-    color: COLORS.gray[900],
+    color: COLORS.gray[50],
   },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: COLORS.primary[500],
+  statRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
-  cardSection: {
+  statCard: {
+    flex: 1,
+    minWidth: 96,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 16,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  statCardSpacing: {
+    marginRight: SPACING.sm,
+  },
+  statValue: {
+    fontFamily: FONTS.bold,
+    fontSize: 18,
+    color: COLORS.gray[50],
+  },
+  statLabel: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.72)',
+    marginTop: 4,
+  },
+  section: {
     marginBottom: SPACING.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
-    paddingHorizontal: SPACING.xs,
+    justifyContent: 'space-between',
   },
   sectionTitle: {
-    fontFamily: FONTS.bold,
+    fontFamily: FONTS.semibold,
     fontSize: 18,
     color: COLORS.gray[900],
   },
-  viewAll: {
+  sectionAction: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  viewAllText: {
+  sectionActionText: {
     fontFamily: FONTS.medium,
     fontSize: 14,
     color: COLORS.primary[500],
   },
-  announcements: {
-    marginBottom: SPACING.lg,
+  sectionActionIcon: {
+    marginLeft: SPACING.xs,
   },
-  eventCard: {
+  surfaceCard: {
+    backgroundColor: COLORS.gray[0] ?? '#FFFFFF',
+    borderRadius: 20,
+    padding: SPACING.lg,
+    shadowColor: '#101828',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 2,
+  },
+  loader: {
+    alignSelf: 'center',
+    marginVertical: SPACING.sm,
+  },
+  stateText: {
+    fontFamily: FONTS.regular,
+    fontSize: 14,
+    color: COLORS.gray[500],
+    textAlign: 'center',
+  },
+  eventRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginVertical: SPACING.xs,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
+    paddingVertical: SPACING.sm,
+  },
+  eventRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: COLORS.gray[100],
+  },
+  eventIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
   },
   eventInfo: {
     flex: 1,
-    marginLeft: SPACING.sm,
   },
   eventTitle: {
     fontFamily: FONTS.medium,
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.gray[900],
   },
   eventDate: {
     fontFamily: FONTS.regular,
-    fontSize: 14,
-    color: COLORS.gray[600],
-    marginTop: 2,
-  },
-  loadingIndicator: {
-    marginTop: SPACING.lg,
-  },
-  errorText: {
-    fontFamily: FONTS.regular,
-    fontSize: 16,
-    color: COLORS.error[500],
-    textAlign: 'center',
-    marginTop: SPACING.lg,
-  },
-  noResultsText: {
-    fontFamily: FONTS.regular,
-    fontSize: 16,
+    fontSize: 13,
     color: COLORS.gray[500],
-    textAlign: 'center',
-    marginTop: SPACING.lg,
+    marginTop: 2,
   },
 });
