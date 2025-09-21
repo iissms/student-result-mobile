@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,6 +13,21 @@ import { COLORS, SPACING } from '@/utils/constants';
 import ResultCard from '@/components/results/ResultCard';
 import Header from '@/components/shared/Header';
 import { useAuth } from '@/contexts/AuthContext';
+import {
+  calculatePercentage,
+  formatDate,
+  getGradeColor,
+  getGradeFromPercentage,
+} from '@/utils/helpers';
+
+type Subject = {
+  subject_id: number;
+  subject_name: string;
+  subject_code?: string;
+  type?: string;
+  marks_obtained: number;
+  max_marks?: number;
+};
 
 type Exam = {
   exam_id: number;
@@ -22,7 +38,7 @@ type Exam = {
   min_marks: number;
   status: string;
   class_id: number;
-  subjects: any[];
+  subjects: Subject[];
 };
 
 type ClassItem = {
@@ -47,6 +63,7 @@ export default function ResultsScreen() {
   const [selectedClassId, setSelectedClassId] = useState<number | null>(null);
   const [classesLoading, setClassesLoading] = useState(true);
   const [classesError, setClassesError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const { authState } = useAuth();
 
   useEffect(() => {
@@ -96,22 +113,27 @@ export default function ResultsScreen() {
     fetchClasses();
   }, [authState.user?.id, authState.user?.token]);
 
-  useEffect(() => {
-    const fetchResults = async () => {
+  const fetchResults = useCallback(
+    async (options?: { silent?: boolean }) => {
       if (!authState.user?.token) {
         return;
       }
 
       if (!selectedClassId) {
         setExams([]);
+        setResultsError(null);
         setResultsLoading(false);
         return;
       }
 
+      const isSilent = options?.silent ?? false;
+
       try {
-        setResultsLoading(true);
+        if (!isSilent) {
+          setResultsLoading(true);
+          setExams([]);
+        }
         setResultsError(null);
-        setExams([]);
 
         const response = await fetch(`${API_BASE_URL}/api/results/student`, {
           method: 'POST',
@@ -121,7 +143,7 @@ export default function ResultsScreen() {
           },
           body: JSON.stringify({
             page: 1,
-            limit: 10, // You can make this dynamic for future infinite scroll
+            limit: 10,
             class_id: selectedClassId,
           }),
         });
@@ -131,8 +153,6 @@ export default function ResultsScreen() {
         }
 
         const data = await response.json();
-        console.log('Paginated fetched results:', data);
-
         setExams(data.results || []);
       } catch (error) {
         console.error('Error fetching student results:', error);
@@ -141,19 +161,45 @@ export default function ResultsScreen() {
             ? error.message
             : 'Something went wrong while loading results.',
         );
-        setExams([]);
+
+        if (!isSilent) {
+          setExams([]);
+        }
       } finally {
-        setResultsLoading(false);
+        if (!isSilent) {
+          setResultsLoading(false);
+        }
       }
-    };
+    },
+    [authState.user?.token, selectedClassId],
+  );
 
+  useEffect(() => {
     fetchResults();
-  }, [authState.user?.token, selectedClassId]);
+  }, [fetchResults]);
 
-  const classFilter = useMemo(() => {
+  const handleRefresh = useCallback(async () => {
+    if (!authState.user?.token || !selectedClassId) {
+      return;
+    }
+
+    setRefreshing(true);
+    try {
+      await fetchResults({ silent: true });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [authState.user?.token, fetchResults, selectedClassId]);
+
+  const activeClass = useMemo(
+    () => classes.find(classItem => classItem.class_id === selectedClassId) ?? null,
+    [classes, selectedClassId],
+  );
+
+  const classFilter = useMemo<React.ReactElement>(() => {
     if (classesError) {
       return (
-        <View style={styles.filterContainer}>
+        <View style={styles.filterCard}>
           <Text style={styles.filterLabel}>Class</Text>
           <Text style={styles.errorText}>{classesError}</Text>
         </View>
@@ -162,7 +208,7 @@ export default function ResultsScreen() {
 
     if (!classes.length) {
       return (
-        <View style={styles.filterContainer}>
+        <View style={styles.filterCard}>
           <Text style={styles.filterLabel}>Class</Text>
           <Text style={styles.emptyHelperText}>No classes available</Text>
         </View>
@@ -170,8 +216,15 @@ export default function ResultsScreen() {
     }
 
     return (
-      <View style={styles.filterContainer}>
-        <Text style={styles.filterLabel}>Class</Text>
+      <View style={styles.filterCard}>
+        <View style={styles.filterHeader}>
+          <Text style={styles.filterLabel}>Class</Text>
+          {!!activeClass?.academic_year && (
+            <Text style={styles.filterHelperText}>
+              Academic Year {activeClass.academic_year}
+            </Text>
+          )}
+        </View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -218,7 +271,117 @@ export default function ResultsScreen() {
         </ScrollView>
       </View>
     );
-  }, [classes, classesError, selectedClassId]);
+  }, [activeClass?.academic_year, classes, classesError, selectedClassId]);
+
+  const resultsSummary = useMemo<React.ReactElement | null>(() => {
+    if (!exams.length) {
+      return null;
+    }
+
+    let totalObtained = 0;
+    let totalPossible = 0;
+    let totalSubjects = 0;
+    let bestExam: { exam: Exam; percentage: number } | null = null;
+    let latestExam: Exam | null = null;
+    let latestExamTimestamp = -Infinity;
+
+    exams.forEach(exam => {
+      const obtained = (exam.subjects || []).reduce((sum, subject) => {
+        const marks =
+          typeof subject.marks_obtained === 'number'
+            ? subject.marks_obtained
+            : Number(subject.marks_obtained ?? 0);
+        return sum + (Number.isFinite(marks) ? marks : 0);
+      }, 0);
+
+      const declaredTotal =
+        typeof exam.marks === 'number' ? exam.marks : Number(exam.marks ?? 0);
+      const fallbackTotal =
+        declaredTotal > 0
+          ? declaredTotal
+          : Math.max(exam.subjects?.length ?? 0, 1) * 100;
+      const percentage = fallbackTotal > 0 ? calculatePercentage(obtained, fallbackTotal) : 0;
+
+      totalObtained += obtained;
+      totalPossible += fallbackTotal;
+      totalSubjects += exam.subjects?.length ?? 0;
+
+      if (!bestExam || percentage > bestExam.percentage) {
+        bestExam = { exam, percentage };
+      }
+
+      if (exam.start_date) {
+        const timestamp = new Date(exam.start_date).getTime();
+        if (!Number.isNaN(timestamp) && timestamp > latestExamTimestamp) {
+          latestExam = exam;
+          latestExamTimestamp = timestamp;
+        }
+      }
+    });
+
+    const averagePercentage =
+      totalPossible > 0 ? Math.round((totalObtained / totalPossible) * 100) : 0;
+    const averageGrade = getGradeFromPercentage(averagePercentage);
+    const bestGrade = getGradeFromPercentage(bestExam?.percentage ?? 0);
+    const latestExamDate = latestExam?.start_date ? formatDate(latestExam.start_date) : null;
+
+    return (
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryHeader}>
+          <View style={styles.summaryTitleGroup}>
+            <Text style={styles.summaryEyebrow}>Selected Class</Text>
+            <Text style={styles.summaryTitle}>
+              {activeClass?.class_name ?? 'Results Overview'}
+            </Text>
+            {!!activeClass?.academic_year && (
+              <Text style={styles.summarySubtitle}>{activeClass.academic_year}</Text>
+            )}
+          </View>
+          <View style={styles.summaryBadge}>
+            <Text style={styles.summaryBadgeLabel}>Average</Text>
+            <Text
+              style={[
+                styles.summaryBadgeValue,
+                { color: getGradeColor(averageGrade) },
+              ]}
+            >
+              {averagePercentage}%
+            </Text>
+            <Text style={styles.summaryBadgeHelper}>{averageGrade}</Text>
+          </View>
+        </View>
+
+        <View style={styles.summaryMetricsRow}>
+          <View style={styles.summaryMetric}>
+            <Text style={styles.summaryMetricLabel}>Exams</Text>
+            <Text style={styles.summaryMetricValue}>{exams.length}</Text>
+            <Text style={styles.summaryMetricHelper}>Completed assessments</Text>
+          </View>
+          <View style={[styles.summaryMetric, styles.summaryMetricDivider]}>
+            <Text style={styles.summaryMetricLabel}>Best Grade</Text>
+            <Text
+              style={[
+                styles.summaryMetricValue,
+                { color: getGradeColor(bestGrade) },
+              ]}
+            >
+              {bestGrade}
+            </Text>
+            {!!bestExam?.exam?.name && (
+              <Text style={styles.summaryMetricHelper}>{bestExam.exam.name}</Text>
+            )}
+          </View>
+          <View style={[styles.summaryMetric, styles.summaryMetricDivider]}>
+            <Text style={styles.summaryMetricLabel}>Subjects</Text>
+            <Text style={styles.summaryMetricValue}>{totalSubjects}</Text>
+            {!!latestExamDate && (
+              <Text style={styles.summaryMetricHelper}>Latest on {latestExamDate}</Text>
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  }, [activeClass?.academic_year, activeClass?.class_name, exams]);
 
   const renderEmptyState = () => {
     if (resultsLoading) {
@@ -247,6 +410,19 @@ export default function ResultsScreen() {
     );
   };
 
+  const listHeader = useMemo<React.ReactElement | null>(() => {
+    if (!resultsSummary && !classFilter) {
+      return null;
+    }
+
+    return (
+      <View style={styles.listHeader}>
+        {resultsSummary}
+        {classFilter}
+      </View>
+    );
+  }, [classFilter, resultsSummary]);
+
   return (
     <View style={styles.container}>
       <Header title="Results" showSettings />
@@ -260,8 +436,16 @@ export default function ResultsScreen() {
           renderItem={({ item }) => <ResultCard exam={item} />}
           keyExtractor={item => item.exam_id.toString()}
           contentContainerStyle={styles.resultsList}
-          ListHeaderComponent={classFilter}
-          ListEmptyComponent={() => renderEmptyState()}
+          ListHeaderComponent={listHeader}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={COLORS.primary[500]}
+              colors={[COLORS.primary[500]]}
+            />
+          }
         />
       )}
     </View>
@@ -279,13 +463,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   resultsList: {
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.xl,
+  },
+  listHeader: {
+    paddingTop: SPACING.lg,
     paddingBottom: SPACING.lg,
   },
   emptyContainer: {
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.xl,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    marginTop: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
   },
   emptyText: {
     fontSize: 16,
@@ -295,14 +488,121 @@ const styles = StyleSheet.create({
   emptyLoadingText: {
     marginTop: SPACING.sm,
   },
-  filterContainer: {
+  summaryCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 4,
     marginBottom: SPACING.lg,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  summaryTitleGroup: {
+    flex: 1,
+    paddingRight: SPACING.md,
+  },
+  summaryEyebrow: {
+    fontSize: 12,
+    color: COLORS.gray[500],
+    textTransform: 'uppercase',
+    marginBottom: SPACING.xs,
+  },
+  summaryTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.gray[900],
+  },
+  summarySubtitle: {
+    marginTop: SPACING.xs,
+    fontSize: 14,
+    color: COLORS.gray[600],
+  },
+  summaryBadge: {
+    alignItems: 'flex-end',
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.primary[50],
+    borderRadius: 14,
+  },
+  summaryBadgeLabel: {
+    fontSize: 12,
+    color: COLORS.gray[600],
+    textTransform: 'uppercase',
+  },
+  summaryBadgeValue: {
+    marginTop: 4,
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  summaryBadgeHelper: {
+    marginTop: 2,
+    fontSize: 12,
+    color: COLORS.gray[500],
+  },
+  summaryMetricsRow: {
+    flexDirection: 'row',
+    marginTop: SPACING.lg,
+  },
+  summaryMetric: {
+    flex: 1,
+  },
+  summaryMetricDivider: {
+    paddingLeft: SPACING.lg,
+    borderLeftWidth: 1,
+    borderLeftColor: COLORS.gray[100],
+  },
+  summaryMetricLabel: {
+    fontSize: 13,
+    color: COLORS.gray[600],
+    marginBottom: SPACING.xs,
+  },
+  summaryMetricValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.gray[900],
+  },
+  summaryMetricHelper: {
+    marginTop: 2,
+    fontSize: 12,
+    color: COLORS.gray[500],
+  },
+  filterCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    marginBottom: SPACING.md,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  filterHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
   },
   filterLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.gray[900],
-    marginBottom: SPACING.sm,
+  },
+  filterHelperText: {
+    fontSize: 13,
+    color: COLORS.gray[500],
   },
   filterChips: {
     paddingRight: SPACING.md,
@@ -310,15 +610,22 @@ const styles = StyleSheet.create({
   filterChip: {
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: COLORS.gray[200],
     marginRight: SPACING.sm,
     backgroundColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 2,
   },
   filterChipActive: {
     backgroundColor: COLORS.primary[50],
     borderColor: COLORS.primary[400],
+    shadowOpacity: 0.12,
+    elevation: 4,
   },
   filterChipText: {
     fontSize: 14,
