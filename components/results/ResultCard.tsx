@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ChevronRight } from 'lucide-react-native';
+
 import { COLORS, FONTS, SPACING } from '@/utils/constants';
 import {
   calculatePercentage,
@@ -80,7 +80,6 @@ export default function ResultCard({ exam, compact = false }: ResultCardProps) {
   const percentage = fallbackTotal > 0 ? calculatePercentage(obtainedMarks, fallbackTotal) : 0;
   const grade = getGradeFromPercentage(percentage);
   const gradeColor = getGradeColor(grade);
-  const gradientColors = [withAlpha(COLORS.primary[500], 0.18), '#FFFFFF'];
   const statusLabel = formatStatus(exam.status);
   const examDateRange =
     exam.end_date && exam.end_date !== exam.start_date
@@ -103,8 +102,8 @@ export default function ResultCard({ exam, compact = false }: ResultCardProps) {
         style={[
           styles.compactCard,
           {
-            backgroundColor: withAlpha(COLORS.primary[500], 0.12),
-            borderColor: withAlpha(COLORS.primary[500], 0.26),
+            backgroundColor: withAlpha(COLORS.primary[500], 0.08),
+            borderColor: withAlpha(COLORS.primary[500], 0.2),
           },
         ]}
         onPress={handlePress}
@@ -124,96 +123,72 @@ export default function ResultCard({ exam, compact = false }: ResultCardProps) {
 
   return (
     <TouchableOpacity style={styles.cardContainer} onPress={handlePress} activeOpacity={0.85}>
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.card, { borderColor: withAlpha(COLORS.primary[500], 0.26) }]}
+      <View
+        style={[
+          styles.card,
+          {
+            borderColor: withAlpha(gradeColor, 0.22),
+            shadowColor: withAlpha(gradeColor, 0.35),
+          },
+        ]}
       >
-        <View style={styles.header}>
-          <View style={styles.headerText}>
-            <Text style={styles.examName}>{exam.name}</Text>
-            <Text style={styles.date}>{examDateRange}</Text>
-          </View>
-          <View
-            style={[
-              styles.scorePill,
-              {
-                backgroundColor: withAlpha(COLORS.primary[500], 0.14),
-                borderColor: withAlpha(COLORS.primary[500], 0.28),
-              },
-            ]}
-          >
-            <Text style={styles.scorePillLabel}>Score</Text>
-            <Text
+        <View style={[styles.accentRail, { backgroundColor: gradeColor }]} />
+
+        <View style={styles.cardContent}>
+          <View style={styles.header}>
+            <View style={styles.headerText}>
+              <Text style={styles.examName}>{exam.name}</Text>
+              <Text style={styles.date}>{examDateRange}</Text>
+            </View>
+
+            <View
               style={[
-                styles.scorePillValue,
+                styles.scoreBadge,
                 {
-                  color: gradeColor,
+                  backgroundColor: withAlpha(gradeColor, 0.1),
+                  borderColor: withAlpha(gradeColor, 0.3),
                 },
               ]}
             >
-              {percentage}%
-            </Text>
-            <Text style={styles.scorePillHelper}>{grade}</Text>
+              <Text style={[styles.scoreBadgeGrade, { color: gradeColor }]}>{grade}</Text>
+              <Text style={styles.scoreBadgeLabel}>Overall score</Text>
+              <Text style={[styles.scoreBadgeValue, { color: gradeColor }]}>{percentage}%</Text>
+            </View>
           </View>
-        </View>
 
-        <View
-          style={[
-            styles.metricsRow,
-            {
-              backgroundColor: withAlpha(COLORS.primary[500], 0.08),
-              borderColor: withAlpha(COLORS.primary[500], 0.2),
-            },
-          ]}
-        >
-          <View style={styles.metric}>
-            <Text style={styles.metricLabel}>Grade</Text>
-            <Text style={[styles.metricValue, { color: gradeColor }]}>{grade}</Text>
-          </View>
-          <View
-            style={[
-              styles.metric,
-              styles.metricDivider,
-              { borderLeftColor: withAlpha(COLORS.primary[500], 0.16) },
-            ]}
-          >
-            <Text style={styles.metricLabel}>Marks</Text>
-            <Text style={styles.metricValue}>
-              {formatNumberValue(obtainedMarks)}/{formatNumberValue(fallbackTotal)}
-            </Text>
-          </View>
-          <View
-            style={[
-              styles.metric,
-              styles.metricDivider,
-              { borderLeftColor: withAlpha(COLORS.primary[500], 0.16) },
-            ]}
-          >
-            <Text style={styles.metricLabel}>Subjects</Text>
-            <Text style={styles.metricValue}>{exam.subjects?.length ?? 0}</Text>
-          </View>
-        </View>
+          <View style={styles.divider} />
 
-        <View style={styles.footer}>
-          <View
-            style={[
-              styles.statusPill,
-              {
-                backgroundColor: withAlpha(COLORS.primary[500], 0.12),
-                borderColor: withAlpha(COLORS.primary[500], 0.26),
-              },
-            ]}
-          >
-            <Text style={styles.statusText}>{statusLabel}</Text>
+          <View style={styles.metricsRow}>
+            <View style={styles.metric}>
+              <Text style={styles.metricLabel}>Marks scored</Text>
+              <Text style={styles.metricValue}>
+                {formatNumberValue(obtainedMarks)}/{formatNumberValue(fallbackTotal)}
+              </Text>
+            </View>
+
+            <View style={[styles.metric, styles.metricDivider]}>
+              <Text style={styles.metricLabel}>Subjects</Text>
+              <Text style={styles.metricValue}>{exam.subjects?.length ?? 0}</Text>
+            </View>
+
+            <View style={[styles.metric, styles.metricDivider]}>
+              <Text style={styles.metricLabel}>Status</Text>
+              <Text style={[styles.metricValue, { color: gradeColor }]}>{statusLabel}</Text>
+            </View>
           </View>
-          <View style={styles.link}>
-            <Text style={styles.linkText}>View details</Text>
-            <ChevronRight size={16} color={COLORS.primary[500]} />
+
+          <View style={styles.footer}>
+            <View style={styles.helperTextWrap}>
+              <Text style={styles.helperText}>Tap to view subject-wise performance</Text>
+            </View>
+
+            <View style={styles.link}>
+              <Text style={styles.linkText}>View details</Text>
+              <ChevronRight size={16} color={COLORS.primary[500]} />
+            </View>
           </View>
         </View>
-      </LinearGradient>
+      </View>
     </TouchableOpacity>
   );
 }
@@ -221,19 +196,27 @@ export default function ResultCard({ exam, compact = false }: ResultCardProps) {
 const styles = StyleSheet.create({
   cardContainer: {
     marginBottom: SPACING.lg,
-    borderRadius: 20,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
   },
   card: {
-    padding: SPACING.lg,
+    position: 'relative',
+    overflow: 'hidden',
     borderRadius: 20,
     borderWidth: 1,
+    backgroundColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
+    elevation: 4,
+  },
+  cardContent: {
+    padding: SPACING.lg,
+  },
+  accentRail: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: 5,
   },
   header: {
     flexDirection: 'row',
@@ -253,39 +236,39 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontFamily: FONTS.regular,
     fontSize: 14,
-    color: COLORS.primary[700],
+    color: COLORS.gray[600],
   },
-  scorePill: {
+  scoreBadge: {
     alignItems: 'flex-end',
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     borderRadius: 14,
     borderWidth: 1,
+    minWidth: 112,
   },
-  scorePillLabel: {
+  scoreBadgeGrade: {
+    fontFamily: FONTS.bold,
+    fontSize: 16,
+  },
+  scoreBadgeLabel: {
+    marginTop: 4,
     fontFamily: FONTS.regular,
     fontSize: 12,
-    color: COLORS.primary[600],
-    textTransform: 'uppercase',
+    color: COLORS.gray[600],
   },
-  scorePillValue: {
-    marginTop: 4,
-    fontFamily: FONTS.bold,
-    fontSize: 22,
-  },
-  scorePillHelper: {
+  scoreBadgeValue: {
     marginTop: 2,
-    fontFamily: FONTS.medium,
-    fontSize: 12,
-    color: COLORS.primary[600],
+    fontFamily: FONTS.bold,
+    fontSize: 18,
+  },
+  divider: {
+    marginTop: SPACING.lg,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: COLORS.gray[200],
   },
   metricsRow: {
     flexDirection: 'row',
     marginTop: SPACING.lg,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 16,
-    borderWidth: 1,
   },
   metric: {
     flex: 1,
@@ -293,11 +276,12 @@ const styles = StyleSheet.create({
   metricDivider: {
     paddingLeft: SPACING.md,
     borderLeftWidth: 1,
+    borderLeftColor: COLORS.gray[200],
   },
   metricLabel: {
     fontFamily: FONTS.regular,
     fontSize: 13,
-    color: COLORS.primary[700],
+    color: COLORS.gray[600],
   },
   metricValue: {
     marginTop: 6,
@@ -306,21 +290,19 @@ const styles = StyleSheet.create({
     color: COLORS.primary[900],
   },
   footer: {
-    marginTop: SPACING.md,
+    marginTop: SPACING.lg,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  statusPill: {
-    paddingVertical: 6,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 999,
-    borderWidth: 1,
+  helperTextWrap: {
+    flex: 1,
+    paddingRight: SPACING.md,
   },
-  statusText: {
-    fontFamily: FONTS.medium,
-    fontSize: 13,
-    color: COLORS.primary[700],
+  helperText: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.gray[500],
   },
   link: {
     flexDirection: 'row',
@@ -362,7 +344,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontFamily: FONTS.regular,
     fontSize: 13,
-    color: COLORS.primary[700],
+    color: COLORS.gray[600],
   },
   compactRight: {
     flexDirection: 'row',
