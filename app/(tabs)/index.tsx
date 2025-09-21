@@ -293,6 +293,19 @@ export default function Dashboard() {
     [latestResult],
   );
 
+  const handleViewAllEvents = useCallback(() => {
+    const params: Record<string, string> = {};
+
+    if (activeClassId) {
+      params.classId = activeClassId.toString();
+    }
+
+    router.push({
+      pathname: '/(tabs)/(stacks)/events',
+      params,
+    });
+  }, [activeClassId, router]);
+
   if (!authState.user) {
     return null;
   }
@@ -386,7 +399,13 @@ export default function Dashboard() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Upcoming events</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Upcoming events</Text>
+            <TouchableOpacity style={styles.sectionAction} onPress={handleViewAllEvents}>
+              <Text style={styles.sectionActionText}>View more</Text>
+              <ChevronRight size={16} color={COLORS.primary[500]} style={styles.sectionActionIcon} />
+            </TouchableOpacity>
+          </View>
           <Card padding="large" style={styles.sectionCard}>
             {eventsLoading ? (
               <ActivityIndicator size="large" color={COLORS.primary[500]} style={styles.loader} />
