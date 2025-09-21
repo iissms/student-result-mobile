@@ -13,6 +13,7 @@ import PerformanceChart from '@/components/dashboard/PerformanceChart';
 import SubjectPerformance from '@/components/dashboard/SubjectPerformance';
 import Header from '@/components/shared/Header';
 import Card from '@/components/ui/Card';
+import { formatDate } from '@/utils/helpers';
 
 export interface Result {
   id: string;
@@ -64,11 +65,28 @@ export interface StudentResultsApiResponse {
   results: ApiExamResult[];
 }
 
-const UPCOMING_EVENTS = [
-  { id: 'finals', title: 'Final examinations', date: 'Starts May 15, 2024' },
-  { id: 'ptm', title: 'Parent & teacher check-in', date: 'May 20, 2024' },
-  { id: 'sports', title: 'Inter-house athletics day', date: 'June 02, 2024' },
-];
+type EventItem = {
+  event_id: number;
+  title: string;
+  description?: string | null;
+  event_date: string;
+  event_end_date?: string | null;
+  location?: string | null;
+  category?: string | null;
+  status?: string | null;
+  Class?: {
+    class_id: number;
+    class_name: string;
+    academic_year?: string;
+  } | null;
+};
+
+type EventsApiResponse = {
+  events: EventItem[];
+  total: number;
+};
+
+const API_BASE_URL = 'http://194.238.23.60:5007';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -77,6 +95,10 @@ export default function Dashboard() {
   const [latestResult, setLatestResult] = useState<Result | null>(null);
   const [loadingResults, setLoadingResults] = useState(true);
   const [errorResults, setErrorResults] = useState<string | null>(null);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsError, setEventsError] = useState<string | null>(null);
+  const [activeClassId, setActiveClassId] = useState<number | null>(null);
 
   const studentId = authState.user?.studentId ?? '11';
 
@@ -102,7 +124,7 @@ export default function Dashboard() {
       const limit = 1;
 
       const response = await fetch(
-        `http://194.238.23.60:5007/api/results/student?page=${page}&limit=${limit}`,
+        `${API_BASE_URL}/api/results/student?page=${page}&limit=${limit}`,
         {
           method: 'POST',
           headers: {
@@ -120,11 +142,13 @@ export default function Dashboard() {
 
       if (data.results.length === 0) {
         setLatestResult(null);
+        setActiveClassId(null);
         return;
       }
 
       const sortedExams = [...data.results].sort((a, b) => b.exam_id - a.exam_id);
       const latestExam = sortedExams[0];
+      setActiveClassId(latestExam.class_id ?? null);
 
       let totalObtainedMarks = 0;
       const totalMaxMarks = latestExam.marks;
@@ -172,10 +196,52 @@ export default function Dashboard() {
     } catch (error) {
       console.error('Failed to fetch student results:', error);
       setErrorResults('Failed to load results. Please try again later.');
+      setActiveClassId(null);
     } finally {
       setLoadingResults(false);
     }
   }, [authState.user?.token, studentId]);
+
+  const fetchEvents = useCallback(async () => {
+    if (!authState.user?.token) {
+      return;
+    }
+
+    setEventsLoading(true);
+    setEventsError(null);
+
+    try {
+      const queryParts = ['includePast=false', 'page=1', 'limit=5'];
+
+      if (activeClassId) {
+        queryParts.push(`class_id=${activeClassId}`);
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/events?${queryParts.join('&')}`,
+        {
+          headers: {
+            Authorization: `Bearer ${authState.user.token}`,
+          },
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to load events (${response.status})`);
+      }
+
+      const data: EventsApiResponse = await response.json();
+      setEvents(data.events ?? []);
+    } catch (error) {
+      console.error('Failed to fetch events:', error);
+      setEventsError(
+        error instanceof Error ? error.message : 'Something went wrong while loading events.',
+      );
+      setEvents([]);
+    } finally {
+      setEventsLoading(false);
+    }
+  }, [authState.user?.token, activeClassId]);
 
   useEffect(() => {
     if (!authState.user) {
@@ -185,6 +251,14 @@ export default function Dashboard() {
 
     fetchAndProcessStudentResults();
   }, [authState.user, fetchAndProcessStudentResults, router]);
+
+  useEffect(() => {
+    if (!authState.user?.token) {
+      return;
+    }
+
+    fetchEvents();
+  }, [authState.user?.token, fetchEvents]);
 
   const firstName = authState.user?.name?.split(' ')[0] ?? 'there';
   const avatarUrl = authState.user?.avatar;
@@ -314,23 +388,48 @@ export default function Dashboard() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Upcoming events</Text>
           <Card padding="large" style={styles.sectionCard}>
-            {UPCOMING_EVENTS.map((event, index) => (
-              <View
-                key={event.id}
-                style={[styles.eventRow, index !== UPCOMING_EVENTS.length - 1 && styles.eventRowDivider]}
-              >
-                <View style={styles.eventContent}>
-                  <View style={styles.eventIcon}>
-                    <Calendar size={18} color={COLORS.primary[500]} />
+            {eventsLoading ? (
+              <ActivityIndicator size="large" color={COLORS.primary[500]} style={styles.loader} />
+            ) : eventsError ? (
+              <Text style={styles.stateText}>{eventsError}</Text>
+            ) : events.length === 0 ? (
+              <Text style={styles.stateText}>No upcoming events right now.</Text>
+            ) : (
+              events.map((event, index) => {
+                const eventDates =
+                  event.event_end_date && event.event_end_date !== event.event_date
+                    ? `${formatDate(event.event_date)} - ${formatDate(event.event_end_date)}`
+                    : formatDate(event.event_date);
+
+                const eventMeta = [eventDates];
+
+                if (event.Class?.class_name) {
+                  eventMeta.push(event.Class.class_name);
+                }
+
+                if (event.location) {
+                  eventMeta.push(event.location);
+                }
+
+                return (
+                  <View
+                    key={event.event_id}
+                    style={[styles.eventRow, index !== events.length - 1 && styles.eventRowDivider]}
+                  >
+                    <View style={styles.eventContent}>
+                      <View style={styles.eventIcon}>
+                        <Calendar size={18} color={COLORS.primary[500]} />
+                      </View>
+                      <View style={styles.eventInfo}>
+                        <Text style={styles.eventTitle}>{event.title}</Text>
+                        <Text style={styles.eventDate}>{eventMeta.join(' · ')}</Text>
+                      </View>
+                    </View>
+                    <ChevronRight size={16} color={COLORS.gray[400]} />
                   </View>
-                  <View style={styles.eventInfo}>
-                    <Text style={styles.eventTitle}>{event.title}</Text>
-                    <Text style={styles.eventDate}>{event.date}</Text>
-                  </View>
-                </View>
-                <ChevronRight size={16} color={COLORS.gray[400]} />
-              </View>
-            ))}
+                );
+              })
+            )}
           </Card>
         </View>
       </ScrollView>
