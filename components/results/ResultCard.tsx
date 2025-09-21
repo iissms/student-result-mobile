@@ -99,13 +99,7 @@ export default function ResultCard({ exam, compact = false }: ResultCardProps) {
   if (compact) {
     return (
       <TouchableOpacity
-        style={[
-          styles.compactCard,
-          {
-            backgroundColor: withAlpha(COLORS.primary[500], 0.08),
-            borderColor: withAlpha(COLORS.primary[500], 0.2),
-          },
-        ]}
+        style={[styles.compactCard, { borderColor: withAlpha(gradeColor, 0.28) }]}
         onPress={handlePress}
         activeOpacity={0.75}
       >
@@ -123,70 +117,46 @@ export default function ResultCard({ exam, compact = false }: ResultCardProps) {
 
   return (
     <TouchableOpacity style={styles.cardContainer} onPress={handlePress} activeOpacity={0.85}>
-      <View
-        style={[
-          styles.card,
-          {
-            borderColor: withAlpha(gradeColor, 0.22),
-            shadowColor: withAlpha(gradeColor, 0.35),
-          },
-        ]}
-      >
-        <View style={[styles.accentRail, { backgroundColor: gradeColor }]} />
-
-        <View style={styles.cardContent}>
-          <View style={styles.header}>
-            <View style={styles.headerText}>
-              <Text style={styles.examName}>{exam.name}</Text>
-              <Text style={styles.date}>{examDateRange}</Text>
-            </View>
-
-            <View
-              style={[
-                styles.scoreBadge,
-                {
-                  backgroundColor: withAlpha(gradeColor, 0.1),
-                  borderColor: withAlpha(gradeColor, 0.3),
-                },
-              ]}
-            >
-              <Text style={[styles.scoreBadgeGrade, { color: gradeColor }]}>{grade}</Text>
-              <Text style={styles.scoreBadgeLabel}>Overall score</Text>
-              <Text style={[styles.scoreBadgeValue, { color: gradeColor }]}>{percentage}%</Text>
-            </View>
+      <View style={[styles.card, { borderColor: withAlpha(gradeColor, 0.25) }]}>
+        <View style={styles.headerRow}>
+          <View style={styles.titleBlock}>
+            <Text style={styles.examName}>{exam.name}</Text>
+            <Text style={styles.date}>{examDateRange}</Text>
           </View>
-
-          <View style={styles.divider} />
-
-          <View style={styles.metricsRow}>
-            <View style={styles.metric}>
-              <Text style={styles.metricLabel}>Marks scored</Text>
-              <Text style={styles.metricValue}>
-                {formatNumberValue(obtainedMarks)}/{formatNumberValue(fallbackTotal)}
-              </Text>
-            </View>
-
-            <View style={[styles.metric, styles.metricDivider]}>
-              <Text style={styles.metricLabel}>Subjects</Text>
-              <Text style={styles.metricValue}>{exam.subjects?.length ?? 0}</Text>
-            </View>
-
-            <View style={[styles.metric, styles.metricDivider]}>
-              <Text style={styles.metricLabel}>Status</Text>
-              <Text style={[styles.metricValue, { color: gradeColor }]}>{statusLabel}</Text>
-            </View>
+          <View
+            style={[
+              styles.scorePill,
+              {
+                backgroundColor: withAlpha(gradeColor, 0.12),
+                borderColor: withAlpha(gradeColor, 0.28),
+              },
+            ]}
+          >
+            <Text style={[styles.scoreValue, { color: gradeColor }]}>{percentage}%</Text>
+            <Text style={[styles.scoreGrade, { color: gradeColor }]}>Grade {grade}</Text>
           </View>
+        </View>
 
-          <View style={styles.footer}>
-            <View style={styles.helperTextWrap}>
-              <Text style={styles.helperText}>Tap to view subject-wise performance</Text>
-            </View>
-
-            <View style={styles.link}>
-              <Text style={styles.linkText}>View details</Text>
-              <ChevronRight size={16} color={COLORS.primary[500]} />
-            </View>
+        <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <Text style={styles.metaLabel}>Marks</Text>
+            <Text style={styles.metaValue}>
+              {formatNumberValue(obtainedMarks)} / {formatNumberValue(fallbackTotal)}
+            </Text>
           </View>
+          <View style={[styles.metaItem, styles.metaDivider]}>
+            <Text style={styles.metaLabel}>Subjects</Text>
+            <Text style={styles.metaValue}>{exam.subjects?.length ?? 0}</Text>
+          </View>
+          <View style={[styles.metaItem, styles.metaDivider]}>
+            <Text style={styles.metaLabel}>Status</Text>
+            <Text style={[styles.metaValue, { color: gradeColor }]}>{statusLabel}</Text>
+          </View>
+        </View>
+
+        <View style={styles.footerRow}>
+          <Text style={styles.linkLabel}>View result details</Text>
+          <ChevronRight size={18} color={COLORS.gray[400]} />
         </View>
       </View>
     </TouchableOpacity>
@@ -195,141 +165,94 @@ export default function ResultCard({ exam, compact = false }: ResultCardProps) {
 
 const styles = StyleSheet.create({
   cardContainer: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   card: {
-    position: 'relative',
-    overflow: 'hidden',
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     backgroundColor: '#FFFFFF',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 4,
+    padding: SPACING.md,
   },
-  cardContent: {
-    padding: SPACING.lg,
-  },
-  accentRail: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    width: 5,
-  },
-  header: {
+  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
+    justifyContent: 'space-between',
   },
-  headerText: {
+  titleBlock: {
     flex: 1,
     paddingRight: SPACING.md,
   },
   examName: {
     fontFamily: FONTS.medium,
-    fontSize: 18,
-    color: COLORS.primary[900],
+    fontSize: 17,
+    color: COLORS.gray[900],
   },
   date: {
     marginTop: 4,
     fontFamily: FONTS.regular,
-    fontSize: 14,
-    color: COLORS.gray[600],
+    fontSize: 13,
+    color: COLORS.gray[500],
   },
-  scoreBadge: {
+  scorePill: {
     alignItems: 'flex-end',
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    minWidth: 112,
   },
-  scoreBadgeGrade: {
-    fontFamily: FONTS.bold,
-    fontSize: 16,
-  },
-  scoreBadgeLabel: {
-    marginTop: 4,
-    fontFamily: FONTS.regular,
-    fontSize: 12,
-    color: COLORS.gray[600],
-  },
-  scoreBadgeValue: {
-    marginTop: 2,
+  scoreValue: {
     fontFamily: FONTS.bold,
     fontSize: 18,
   },
-  divider: {
-    marginTop: SPACING.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: COLORS.gray[200],
+  scoreGrade: {
+    marginTop: 2,
+    fontFamily: FONTS.medium,
+    fontSize: 12,
   },
-  metricsRow: {
+  metaRow: {
     flexDirection: 'row',
-    marginTop: SPACING.lg,
+    marginTop: SPACING.md,
   },
-  metric: {
+  metaItem: {
     flex: 1,
   },
-  metricDivider: {
+  metaDivider: {
     paddingLeft: SPACING.md,
-    borderLeftWidth: 1,
+    borderLeftWidth: StyleSheet.hairlineWidth,
     borderLeftColor: COLORS.gray[200],
   },
-  metricLabel: {
-    fontFamily: FONTS.regular,
-    fontSize: 13,
-    color: COLORS.gray[600],
-  },
-  metricValue: {
-    marginTop: 6,
-    fontFamily: FONTS.bold,
-    fontSize: 18,
-    color: COLORS.primary[900],
-  },
-  footer: {
-    marginTop: SPACING.lg,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  helperTextWrap: {
-    flex: 1,
-    paddingRight: SPACING.md,
-  },
-  helperText: {
+  metaLabel: {
     fontFamily: FONTS.regular,
     fontSize: 12,
     color: COLORS.gray[500],
   },
-  link: {
+  metaValue: {
+    marginTop: 6,
+    fontFamily: FONTS.medium,
+    fontSize: 16,
+    color: COLORS.gray[800],
+  },
+  footerRow: {
+    marginTop: SPACING.md,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  linkText: {
+  linkLabel: {
     fontFamily: FONTS.medium,
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.primary[500],
-    marginRight: 6,
   },
   compactCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.lg,
+    paddingHorizontal: SPACING.md,
     marginBottom: SPACING.sm,
     borderRadius: 14,
     borderWidth: 1,
     backgroundColor: '#FFFFFF',
-    borderColor: COLORS.gray[200],
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
   },
   compactContent: {
     flex: 1,
@@ -337,14 +260,14 @@ const styles = StyleSheet.create({
   },
   compactTitle: {
     fontFamily: FONTS.medium,
-    fontSize: 16,
-    color: COLORS.primary[900],
+    fontSize: 15,
+    color: COLORS.gray[900],
   },
   compactSubtitle: {
     marginTop: 2,
     fontFamily: FONTS.regular,
-    fontSize: 13,
-    color: COLORS.gray[600],
+    fontSize: 12,
+    color: COLORS.gray[500],
   },
   compactRight: {
     flexDirection: 'row',
@@ -352,7 +275,7 @@ const styles = StyleSheet.create({
   },
   compactGrade: {
     fontFamily: FONTS.bold,
-    fontSize: 18,
+    fontSize: 16,
     marginRight: 6,
   },
 });

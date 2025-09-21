@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING } from '@/utils/constants';
 import ResultCard from '@/components/results/ResultCard';
 import Header from '@/components/shared/Header';
@@ -201,51 +200,38 @@ export default function ResultsScreen() {
   const classFilter = useMemo<React.ReactElement>(() => {
     if (classesError) {
       return (
-        <LinearGradient
-          colors={[withAlpha(COLORS.primary[500], 0.12), '#FFFFFF']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.filterCard}
-        >
-          <Text style={styles.filterLabel}>Class</Text>
+        <View style={[styles.sectionCard, styles.sectionMessage]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Class</Text>
+          </View>
           <Text style={styles.errorText}>{classesError}</Text>
-        </LinearGradient>
+        </View>
       );
     }
 
     if (!classes.length) {
       return (
-        <LinearGradient
-          colors={[withAlpha(COLORS.primary[500], 0.12), '#FFFFFF']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.filterCard}
-        >
-          <Text style={styles.filterLabel}>Class</Text>
-          <Text style={styles.emptyHelperText}>No classes available</Text>
-        </LinearGradient>
+        <View style={[styles.sectionCard, styles.sectionMessage]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Class</Text>
+          </View>
+          <Text style={styles.messageText}>No classes available</Text>
+        </View>
       );
     }
 
     return (
-      <LinearGradient
-        colors={[withAlpha(COLORS.primary[500], 0.12), '#FFFFFF']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.filterCard}
-      >
-        <View style={styles.filterHeader}>
-          <Text style={styles.filterLabel}>Class</Text>
+      <View style={styles.sectionCard}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Class</Text>
           {!!activeClass?.academic_year && (
-            <Text style={styles.filterHelperText}>
-              Academic Year {activeClass.academic_year}
-            </Text>
+            <Text style={styles.sectionSubtitle}>{activeClass.academic_year}</Text>
           )}
         </View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.filterChips}
+          contentContainerStyle={styles.chipRow}
         >
           {classes.map(classItem => {
             const isSelected = classItem.class_id === selectedClassId;
@@ -253,10 +239,7 @@ export default function ResultsScreen() {
             return (
               <TouchableOpacity
                 key={classItem.class_id}
-                style={[
-                  styles.filterChip,
-                  isSelected && styles.filterChipActive,
-                ]}
+                style={[styles.chip, isSelected && styles.chipActive]}
                 activeOpacity={0.8}
                 onPress={() => {
                   if (classItem.class_id !== selectedClassId) {
@@ -264,20 +247,12 @@ export default function ResultsScreen() {
                   }
                 }}
               >
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    isSelected && styles.filterChipTextActive,
-                  ]}
-                >
+                <Text style={[styles.chipLabel, isSelected && styles.chipLabelActive]}>
                   {classItem.class_name}
                 </Text>
                 {!!classItem.academic_year && (
                   <Text
-                    style={[
-                      styles.filterChipSubText,
-                      isSelected && styles.filterChipSubTextActive,
-                    ]}
+                    style={[styles.chipCaption, isSelected && styles.chipCaptionActive]}
                   >
                     {classItem.academic_year}
                   </Text>
@@ -286,7 +261,7 @@ export default function ResultsScreen() {
             );
           })}
         </ScrollView>
-      </LinearGradient>
+      </View>
     );
   }, [activeClass?.academic_year, classes, classesError, selectedClassId]);
 
@@ -339,21 +314,17 @@ export default function ResultsScreen() {
     const averagePercentage =
       totalPossible > 0 ? Math.round((totalObtained / totalPossible) * 100) : 0;
     const averageGrade = getGradeFromPercentage(averagePercentage);
+    const averageColor = getGradeColor(averageGrade);
     const bestGrade = getGradeFromPercentage(bestExam?.percentage ?? 0);
     const latestExamDate = latestExam?.start_date ? formatDate(latestExam.start_date) : null;
 
     return (
-      <LinearGradient
-        colors={[withAlpha(COLORS.primary[500], 0.18), '#FFFFFF']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.summaryCard}
-      >
-        <View style={styles.summaryHeader}>
+      <View style={styles.summaryCard}>
+        <View style={styles.summaryHeaderRow}>
           <View style={styles.summaryTitleGroup}>
-            <Text style={styles.summaryEyebrow}>Selected Class</Text>
+            <Text style={styles.summaryEyebrow}>Performance overview</Text>
             <Text style={styles.summaryTitle}>
-              {activeClass?.class_name ?? 'Results Overview'}
+              {activeClass?.class_name ?? 'Results overview'}
             </Text>
             {!!activeClass?.academic_year && (
               <Text style={styles.summarySubtitle}>{activeClass.academic_year}</Text>
@@ -361,78 +332,49 @@ export default function ResultsScreen() {
           </View>
           <View
             style={[
-              styles.summaryBadge,
+              styles.summaryAverage,
               {
-                backgroundColor: withAlpha(COLORS.primary[500], 0.14),
-                borderColor: withAlpha(COLORS.primary[500], 0.28),
+                borderColor: withAlpha(averageColor, 0.24),
+                backgroundColor: withAlpha(averageColor, 0.12),
               },
             ]}
           >
-            <Text style={styles.summaryBadgeLabel}>Average</Text>
-            <Text
-              style={[
-                styles.summaryBadgeValue,
-                { color: getGradeColor(averageGrade) },
-              ]}
-            >
+            <Text style={styles.summaryAverageLabel}>Average</Text>
+            <Text style={[styles.summaryAverageValue, { color: averageColor }]}>
               {averagePercentage}%
             </Text>
-            <Text style={styles.summaryBadgeHelper}>{averageGrade}</Text>
+            <Text style={[styles.summaryAverageGrade, { color: averageColor }]}>
+              {averageGrade}
+            </Text>
           </View>
         </View>
 
-        <View
-          style={[
-            styles.summaryMetricsRow,
-            {
-              backgroundColor: withAlpha(COLORS.primary[500], 0.08),
-              borderColor: withAlpha(COLORS.primary[500], 0.18),
-            },
-          ]}
-        >
-          <View style={styles.summaryMetric}>
-            <Text style={styles.summaryMetricLabel}>Exams</Text>
-            <Text style={styles.summaryMetricValue}>{exams.length}</Text>
-            <Text style={styles.summaryMetricHelper}>Completed assessments</Text>
+        <View style={styles.summaryGrid}>
+          <View style={styles.summaryStat}>
+            <Text style={styles.summaryStatLabel}>Exams</Text>
+            <Text style={styles.summaryStatValue}>{exams.length}</Text>
+            <Text style={styles.summaryStatHelper}>Completed assessments</Text>
           </View>
-          <View
-            style={[
-              styles.summaryMetric,
-              styles.summaryMetricDivider,
-              { borderLeftColor: withAlpha(COLORS.primary[500], 0.16) },
-            ]}
-          >
-            <Text style={styles.summaryMetricLabel}>Best Grade</Text>
-            <Text
-              style={[
-                styles.summaryMetricValue,
-                { color: getGradeColor(bestGrade) },
-              ]}
-            >
+          <View style={[styles.summaryStat, styles.summaryStatDivider]}>
+            <Text style={styles.summaryStatLabel}>Best grade</Text>
+            <Text style={[styles.summaryStatValue, { color: getGradeColor(bestGrade) }]}>
               {bestGrade}
             </Text>
             {!!bestExam?.exam?.name && (
-              <Text style={styles.summaryMetricHelper}>{bestExam.exam.name}</Text>
+              <Text style={styles.summaryStatHelper}>{bestExam.exam.name}</Text>
             )}
           </View>
-          <View
-            style={[
-              styles.summaryMetric,
-              styles.summaryMetricDivider,
-              { borderLeftColor: withAlpha(COLORS.primary[500], 0.16) },
-            ]}
-          >
-            <Text style={styles.summaryMetricLabel}>Subjects</Text>
-            <Text style={styles.summaryMetricValue}>{totalSubjects}</Text>
+          <View style={[styles.summaryStat, styles.summaryStatDivider]}>
+            <Text style={styles.summaryStatLabel}>Subjects</Text>
+            <Text style={styles.summaryStatValue}>{totalSubjects}</Text>
             {!!latestExamDate && (
-              <Text style={styles.summaryMetricHelper}>Latest on {latestExamDate}</Text>
+              <Text style={styles.summaryStatHelper}>Latest on {latestExamDate}</Text>
             )}
           </View>
         </View>
-      </LinearGradient>
+      </View>
     );
   }, [activeClass?.academic_year, activeClass?.class_name, exams]);
-
   const renderEmptyState = () => {
     if (resultsLoading) {
       return (
@@ -518,41 +460,94 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     paddingTop: SPACING.lg,
-    paddingBottom: SPACING.lg,
+    paddingBottom: SPACING.md,
   },
   emptyContainer: {
-    justifyContent: 'center',
     alignItems: 'center',
-    padding: SPACING.xl,
-    backgroundColor: withAlpha(COLORS.primary[500], 0.08),
-    borderRadius: 16,
-    marginTop: SPACING.lg,
-    borderWidth: 1,
-    borderColor: withAlpha(COLORS.primary[500], 0.18),
+    paddingVertical: SPACING.lg,
   },
   emptyText: {
-    fontSize: 16,
-    color: COLORS.primary[700],
+    fontSize: 15,
+    color: COLORS.gray[500],
     textAlign: 'center',
   },
   emptyLoadingText: {
     marginTop: SPACING.sm,
+    color: COLORS.gray[500],
+  },
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.gray[800],
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: COLORS.gray[500],
+  },
+  sectionMessage: {
+    paddingVertical: SPACING.sm,
+  },
+  messageText: {
+    fontSize: 14,
+    color: COLORS.gray[600],
+  },
+  chipRow: {
+    paddingVertical: 2,
+    paddingRight: SPACING.md,
+  },
+  chip: {
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    marginRight: SPACING.sm,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'flex-start',
+  },
+  chipActive: {
+    borderColor: COLORS.primary[400],
+    backgroundColor: COLORS.primary[50],
+  },
+  chipLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.gray[700],
+  },
+  chipLabelActive: {
+    color: COLORS.primary[700],
+  },
+  chipCaption: {
+    marginTop: 2,
+    fontSize: 12,
+    color: COLORS.gray[500],
+  },
+  chipCaptionActive: {
+    color: COLORS.primary[600],
   },
   summaryCard: {
-    borderRadius: 20,
-    padding: SPACING.lg,
-    borderWidth: 1,
-    borderColor: withAlpha(COLORS.primary[500], 0.2),
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 5,
-    marginBottom: SPACING.lg,
-    overflow: 'hidden',
     backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    padding: SPACING.lg,
+    marginBottom: SPACING.lg,
   },
-  summaryHeader: {
+  summaryHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
@@ -563,147 +558,72 @@ const styles = StyleSheet.create({
   },
   summaryEyebrow: {
     fontSize: 12,
-    color: COLORS.primary[600],
+    color: COLORS.gray[500],
     textTransform: 'uppercase',
     marginBottom: SPACING.xs,
   },
   summaryTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.primary[900],
+    color: COLORS.gray[900],
   },
   summarySubtitle: {
     marginTop: SPACING.xs,
     fontSize: 14,
-    color: COLORS.primary[700],
+    color: COLORS.gray[600],
   },
-  summaryBadge: {
+  summaryAverage: {
     alignItems: 'flex-end',
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     borderRadius: 14,
     borderWidth: 1,
   },
-  summaryBadgeLabel: {
+  summaryAverageLabel: {
     fontSize: 12,
-    color: COLORS.primary[600],
+    color: COLORS.gray[500],
     textTransform: 'uppercase',
   },
-  summaryBadgeValue: {
+  summaryAverageValue: {
     marginTop: 4,
     fontSize: 22,
     fontWeight: '700',
   },
-  summaryBadgeHelper: {
+  summaryAverageGrade: {
     marginTop: 2,
     fontSize: 12,
-    color: COLORS.primary[600],
+    fontWeight: '600',
   },
-  summaryMetricsRow: {
+  summaryGrid: {
     flexDirection: 'row',
     marginTop: SPACING.lg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.md,
-    borderRadius: 16,
-    borderWidth: 1,
   },
-  summaryMetric: {
+  summaryStat: {
     flex: 1,
   },
-  summaryMetricDivider: {
-    paddingLeft: SPACING.lg,
-    borderLeftWidth: 1,
+  summaryStatDivider: {
+    paddingLeft: SPACING.md,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: COLORS.gray[200],
   },
-  summaryMetricLabel: {
+  summaryStatLabel: {
     fontSize: 13,
-    color: COLORS.primary[700],
+    color: COLORS.gray[500],
     marginBottom: SPACING.xs,
   },
-  summaryMetricValue: {
+  summaryStatValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.primary[900],
+    color: COLORS.gray[900],
   },
-  summaryMetricHelper: {
-    marginTop: 2,
-    fontSize: 12,
-    color: COLORS.primary[600],
-  },
-  filterCard: {
-    borderRadius: 16,
-    paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    borderWidth: 1,
-    borderColor: withAlpha(COLORS.primary[500], 0.18),
-    marginBottom: SPACING.md,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-    overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
-  },
-  filterHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  filterLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.primary[900],
-  },
-  filterHelperText: {
-    fontSize: 13,
-    color: COLORS.primary[600],
-  },
-  filterChips: {
-    paddingRight: SPACING.md,
-  },
-  filterChip: {
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: withAlpha(COLORS.primary[500], 0.18),
-    marginRight: SPACING.sm,
-    backgroundColor: withAlpha(COLORS.primary[500], 0.08),
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 2,
-  },
-  filterChipActive: {
-    backgroundColor: withAlpha(COLORS.primary[500], 0.22),
-    borderColor: COLORS.primary[400],
-    shadowOpacity: 0.16,
-    elevation: 4,
-  },
-  filterChipText: {
-    fontSize: 14,
-    color: COLORS.primary[700],
-    fontWeight: '600',
-  },
-  filterChipTextActive: {
-    color: COLORS.primary[900],
-  },
-  filterChipSubText: {
-    marginTop: 2,
+  summaryStatHelper: {
+    marginTop: 4,
     fontSize: 12,
     color: COLORS.gray[500],
-  },
-  filterChipSubTextActive: {
-    color: COLORS.primary[600],
-  },
-  emptyHelperText: {
-    fontSize: 14,
-    color: COLORS.primary[600],
   },
   errorText: {
     fontSize: 14,
     color: COLORS.error[500],
   },
 });
+
