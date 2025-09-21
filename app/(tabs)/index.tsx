@@ -12,6 +12,7 @@ import ResultsSummary from '@/components/dashboard/ResultsSummary';
 import PerformanceChart from '@/components/dashboard/PerformanceChart';
 import SubjectPerformance from '@/components/dashboard/SubjectPerformance';
 import Header from '@/components/shared/Header';
+import Card from '@/components/ui/Card';
 
 export interface Result {
   id: string;
@@ -279,7 +280,7 @@ export default function Dashboard() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.surfaceCard}>
+          <Card padding="large" style={styles.sectionCard}>
             {loadingResults ? (
               <ActivityIndicator size="large" color={COLORS.primary[500]} style={styles.loader} />
             ) : errorResults ? (
@@ -289,42 +290,48 @@ export default function Dashboard() {
             ) : (
               <Text style={styles.stateText}>No results available just yet.</Text>
             )}
-          </View>
+          </Card>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Performance overview</Text>
-          <View style={styles.surfaceCard}>
-            <PerformanceChart data={mockPerformanceTrends} classAverages={classAverages} />
-          </View>
+          <Card padding="large" style={styles.sectionCard}>
+            <PerformanceChart
+              data={mockPerformanceTrends}
+              classAverages={classAverages}
+              title=""
+            />
+          </Card>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Subject focus</Text>
-          <View style={styles.surfaceCard}>
-            <SubjectPerformance data={subjectPerformance} />
-          </View>
+          <Text style={styles.sectionTitle}>Subject performance</Text>
+          <Card padding="large" style={styles.sectionCard}>
+            <SubjectPerformance data={subjectPerformance} showTitle={false} />
+          </Card>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Upcoming events</Text>
-          <View style={styles.surfaceCard}>
+          <Card padding="large" style={styles.sectionCard}>
             {UPCOMING_EVENTS.map((event, index) => (
               <View
                 key={event.id}
-                style={[styles.eventRow, index !== 0 && styles.eventRowDivider]}
+                style={[styles.eventRow, index !== UPCOMING_EVENTS.length - 1 && styles.eventRowDivider]}
               >
-                <View style={styles.eventIcon}>
-                  <Calendar size={18} color={COLORS.primary[500]} />
-                </View>
-                <View style={styles.eventInfo}>
-                  <Text style={styles.eventTitle}>{event.title}</Text>
-                  <Text style={styles.eventDate}>{event.date}</Text>
+                <View style={styles.eventContent}>
+                  <View style={styles.eventIcon}>
+                    <Calendar size={18} color={COLORS.primary[500]} />
+                  </View>
+                  <View style={styles.eventInfo}>
+                    <Text style={styles.eventTitle}>{event.title}</Text>
+                    <Text style={styles.eventDate}>{event.date}</Text>
+                  </View>
                 </View>
                 <ChevronRight size={16} color={COLORS.gray[400]} />
               </View>
             ))}
-          </View>
+          </Card>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -411,8 +418,8 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     minWidth: 96,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 18,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
     marginBottom: SPACING.sm,
@@ -432,7 +439,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   section: {
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.xl,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -440,7 +447,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   sectionTitle: {
-    fontFamily: FONTS.semibold,
+    fontFamily: FONTS.bold,
     fontSize: 18,
     color: COLORS.gray[900],
   },
@@ -456,15 +463,8 @@ const styles = StyleSheet.create({
   sectionActionIcon: {
     marginLeft: SPACING.xs,
   },
-  surfaceCard: {
-    backgroundColor: COLORS.gray[0] ?? '#FFFFFF',
-    borderRadius: 20,
-    padding: SPACING.lg,
-    shadowColor: '#101828',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    elevation: 2,
+  sectionCard: {
+    marginTop: SPACING.md,
   },
   loader: {
     alignSelf: 'center',
@@ -479,33 +479,40 @@ const styles = StyleSheet.create({
   eventRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: SPACING.sm,
   },
   eventRowDivider: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[100],
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray[100],
+  },
+  eventContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: SPACING.sm,
   },
   eventIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.primary[50],
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: SPACING.sm,
+    marginRight: SPACING.md,
   },
   eventInfo: {
     flex: 1,
   },
   eventTitle: {
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.bold,
     fontSize: 15,
     color: COLORS.gray[900],
   },
   eventDate: {
     fontFamily: FONTS.regular,
     fontSize: 13,
-    color: COLORS.gray[500],
+    color: COLORS.gray[600],
     marginTop: 2,
   },
 });

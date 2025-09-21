@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
-import { COLORS, FONTS, SPACING } from '@/utils/constants';
-import Card from '@/components/ui/Card';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { TrendingDown, TrendingUp, Minus } from 'lucide-react-native';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
+
+import { COLORS, FONTS, SPACING } from '@/utils/constants';
 
 interface SubjectData {
   subject: string;
@@ -14,80 +14,108 @@ interface SubjectData {
 
 interface SubjectPerformanceProps {
   data: SubjectData[];
+  showTitle?: boolean;
+  title?: string;
 }
 
-export default function SubjectPerformance({ data }: SubjectPerformanceProps) {
+export default function SubjectPerformance({
+  data,
+  showTitle = true,
+  title,
+}: SubjectPerformanceProps) {
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
   const barWidthValues = data.map(() => useSharedValue(0));
-  
+
   React.useEffect(() => {
-    // Animate bars
     data.forEach((_, index) => {
       barWidthValues[index].value = withTiming(data[index].current / 100, { duration: 1000 });
     });
   }, [data]);
-  
-  // Create animated styles for each bar
-  const barStyles = barWidthValues.map(value => 
+
+  const barStyles = barWidthValues.map(value =>
     useAnimatedStyle(() => ({
       width: `${value.value * 100}%`,
     }))
   );
-  
+
   return (
-    <Card style={styles.card}>
-      <Text style={styles.title}>Subject Performance</Text>
-      
+    <View style={styles.container}>
+      {showTitle ? <Text style={styles.title}>{title ?? 'Subject performance'}</Text> : null}
+
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scrollView}>
-        {data.map((item, index) => (
-          <View 
-            key={item.subject} 
-            style={[
-              styles.subjectItem,
-              activeSubject === item.subject && styles.activeSubject
-            ]}
-            onTouchStart={() => setActiveSubject(item.subject)}
-            onTouchEnd={() => setActiveSubject(null)}
-          >
-            <View style={styles.subjectHeader}>
-              <Text style={styles.subjectName}>{item.subject}</Text>
-              <View style={styles.changeContainer}>
-                <Text style={[
-                  styles.changeValue,
-                  item.change > 0 ? styles.positiveChange : 
-                  item.change < 0 ? styles.negativeChange : styles.neutralChange
-                ]}>
-                  {item.change > 0 ? '+' : ''}{item.change}%
-                </Text>
-                {item.change > 0 ? (
-                  <TrendingUp size={16} color={COLORS.accent[500]} />
-                ) : item.change < 0 ? (
-                  <TrendingDown size={16} color={COLORS.error[500]} />
-                ) : (
-                  <Minus size={16} color={COLORS.gray[500]} />
-                )}
-              </View>
-            </View>
-            
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBackground}>
-                <Animated.View 
+        {data.map((item, index) => {
+          const changePositive = item.change > 0;
+          const changeNegative = item.change < 0;
+
+          return (
+            <View
+              key={item.subject}
+              style={[
+                styles.subjectItem,
+                activeSubject === item.subject && styles.activeSubject,
+              ]}
+              onTouchStart={() => setActiveSubject(item.subject)}
+              onTouchEnd={() => setActiveSubject(null)}
+            >
+              <View style={styles.subjectHeader}>
+                <View>
+                  <Text style={styles.subjectName}>{item.subject}</Text>
+                  <Text style={styles.subjectHint}>Previous {item.previous}%</Text>
+                </View>
+
+                <View
                   style={[
-                    styles.progressFill,
-                    barStyles[index],
-                    { backgroundColor: getBarColor(item.current) }
-                  ]} 
-                />
+                    styles.changeBadge,
+                    changePositive
+                      ? styles.positiveChangeBadge
+                      : changeNegative
+                      ? styles.negativeChangeBadge
+                      : styles.neutralChangeBadge,
+                  ]}
+                >
+                  {changePositive ? (
+                    <TrendingUp size={14} color={COLORS.accent[600]} style={styles.changeIcon} />
+                  ) : changeNegative ? (
+                    <TrendingDown size={14} color={COLORS.error[500]} style={styles.changeIcon} />
+                  ) : (
+                    <Minus size={14} color={COLORS.gray[600]} style={styles.changeIcon} />
+                  )}
+                  <Text
+                    style={[
+                      styles.changeValue,
+                      changePositive
+                        ? styles.positiveChangeText
+                        : changeNegative
+                        ? styles.negativeChangeText
+                        : styles.neutralChangeText,
+                    ]}
+                  >
+                    {item.change > 0 ? '+' : ''}
+                    {item.change}%
+                  </Text>
+                </View>
               </View>
-              <View style={styles.marksContainer}>
-                <Text style={styles.currentMarks}>{item.current}%</Text>
-                <Text style={styles.previousMarks}>Previous: {item.previous}%</Text>
+
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBackground}>
+                  <Animated.View
+                    style={[
+                      styles.progressFill,
+                      barStyles[index],
+                      { backgroundColor: getBarColor(item.current) },
+                    ]}
+                  />
+                </View>
+                <View style={styles.marksContainer}>
+                  <Text style={styles.currentMarks}>{item.current}%</Text>
+                  <Text style={styles.previousMarks}>Previous {item.previous}%</Text>
+                </View>
               </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
-    </Card>
+    </View>
   );
 }
 
@@ -100,8 +128,8 @@ const getBarColor = (percentage: number) => {
 };
 
 const styles = StyleSheet.create({
-  card: {
-    marginVertical: SPACING.sm,
+  container: {
+    width: '100%',
   },
   title: {
     fontFamily: FONTS.bold,
@@ -110,67 +138,90 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   scrollView: {
-    maxHeight: 350,
+    maxHeight: 340,
   },
   subjectItem: {
     marginBottom: SPACING.md,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.xs,
-    borderRadius: 8,
+    padding: SPACING.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: COLORS.gray[200],
+    backgroundColor: '#FFFFFF',
   },
   activeSubject: {
-    backgroundColor: COLORS.gray[50],
+    borderColor: COLORS.primary[200],
+    backgroundColor: COLORS.primary[50],
   },
   subjectHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.xs,
   },
   subjectName: {
-    fontFamily: FONTS.medium,
+    fontFamily: FONTS.bold,
     fontSize: 16,
     color: COLORS.gray[900],
   },
-  changeContainer: {
+  subjectHint: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.gray[500],
+    marginTop: 2,
+  },
+  changeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderRadius: 999,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+  },
+  changeIcon: {
+    marginRight: 6,
   },
   changeValue: {
     fontFamily: FONTS.medium,
-    fontSize: 14,
-    marginRight: SPACING.xs,
+    fontSize: 13,
   },
-  positiveChange: {
-    color: COLORS.accent[500],
+  positiveChangeBadge: {
+    backgroundColor: COLORS.accent[50],
   },
-  negativeChange: {
+  positiveChangeText: {
+    color: COLORS.accent[600],
+  },
+  negativeChangeBadge: {
+    backgroundColor: COLORS.error[50],
+  },
+  negativeChangeText: {
     color: COLORS.error[500],
   },
-  neutralChange: {
-    color: COLORS.gray[500],
+  neutralChangeBadge: {
+    backgroundColor: COLORS.gray[100],
+  },
+  neutralChangeText: {
+    color: COLORS.gray[600],
   },
   progressContainer: {
-    marginTop: SPACING.xs,
+    marginTop: SPACING.md,
   },
   progressBackground: {
     height: 10,
     backgroundColor: COLORS.gray[200],
-    borderRadius: 5,
+    borderRadius: 6,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 5,
+    borderRadius: 6,
   },
   marksContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 4,
+    marginTop: SPACING.sm,
+    alignItems: 'center',
   },
   currentMarks: {
-    fontFamily: FONTS.medium,
-    fontSize: 14,
+    fontFamily: FONTS.bold,
+    fontSize: 16,
     color: COLORS.gray[900],
   },
   previousMarks: {

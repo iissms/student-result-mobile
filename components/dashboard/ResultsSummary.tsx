@@ -3,7 +3,6 @@ import { View, Text, StyleSheet } from 'react-native';
 import { ChartBar as BarChart2, TrendingUp } from 'lucide-react-native';
 import { COLORS, FONTS, SPACING } from '@/utils/constants';
 import { Result } from '@/types';
-import Card from '@/components/ui/Card';
 import { getGradeColor } from '@/utils/helpers';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
@@ -13,153 +12,218 @@ interface ResultsSummaryProps {
 
 export default function ResultsSummary({ result }: ResultsSummaryProps) {
   const progressValue = useSharedValue(0);
-  
+
   React.useEffect(() => {
     progressValue.value = withTiming(result.percentage / 100, { duration: 1000 });
   }, [result.percentage]);
-  
+
   const progressStyle = useAnimatedStyle(() => {
     return {
       width: `${progressValue.value * 100}%`,
     };
   });
-  
+
   return (
-    <Card style={styles.card}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <View>
+        <View style={styles.headingText}>
           <Text style={styles.title}>{result.examName}</Text>
           <Text style={styles.subtitle}>{result.term}</Text>
         </View>
-        <View style={styles.gradeContainer}>
-          <Text style={[styles.grade, { color: getGradeColor(result.grade) }]}>
-            {result.grade}
-          </Text>
+        <View style={[styles.gradeBadge, { borderColor: getGradeColor(result.grade) }]}>
+          <Text style={[styles.grade, { color: getGradeColor(result.grade) }]}>{result.grade}</Text>
         </View>
       </View>
-      
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Total Marks</Text>
-          <Text style={styles.statValue}>
-            {result.obtainedMarks}/{result.totalMarks}
+
+      <View style={styles.metaRow}>
+        <View style={styles.metaItem}>
+          <Text style={styles.metaLabel}>Total marks</Text>
+          <Text style={styles.metaValue}>
+            {result.obtainedMarks}
+            <Text style={styles.metaMax}>/{result.totalMarks}</Text>
           </Text>
         </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>Percentage</Text>
-          <Text style={styles.statValue}>{result.percentage}%</Text>
+        <View style={styles.metaDivider} />
+        <View style={styles.metaItem}>
+          <Text style={styles.metaLabel}>Percentage</Text>
+          <Text style={styles.metaValue}>{Math.round(result.percentage)}%</Text>
         </View>
-        {result.rank && (
-          <View style={styles.statItem}>
-            <Text style={styles.statLabel}>Rank</Text>
-            <Text style={styles.statValue}>{result.rank}</Text>
-          </View>
-        )}
+        {result.rank ? (
+          <>
+            <View style={styles.metaDivider} />
+            <View style={styles.metaItem}>
+              <Text style={styles.metaLabel}>Rank</Text>
+              <Text style={styles.metaValue}>{result.rank}</Text>
+            </View>
+          </>
+        ) : null}
       </View>
-      
-      <View style={styles.progressContainer}>
+
+      <View style={styles.progressSection}>
+        <View style={styles.progressHeader}>
+          <Text style={styles.progressLabel}>Overall performance</Text>
+          <Text style={styles.progressValue}>{Math.round(result.percentage)}%</Text>
+        </View>
         <View style={styles.progressBackground}>
-          <Animated.View 
+          <Animated.View
             style={[
-              styles.progressFill, 
+              styles.progressFill,
               progressStyle,
               { backgroundColor: getGradeColor(result.grade) },
-            ]} 
+            ]}
           />
         </View>
       </View>
-      
+
       <View style={styles.footer}>
-        <View style={styles.iconContainer}>
-          <BarChart2 size={20} color={COLORS.primary[500]} />
-          <Text style={styles.footerText}>Subject Analysis</Text>
+        <View style={styles.footerItem}>
+          <View style={[styles.footerIcon, styles.analysisIcon]}>
+            <BarChart2 size={16} color={COLORS.primary[500]} />
+          </View>
+          <Text style={styles.footerText}>Subject analysis</Text>
         </View>
-        <View style={styles.iconContainer}>
-          <TrendingUp size={20} color={COLORS.accent[500]} />
-          <Text style={styles.footerText}>Performance Trend</Text>
+        <View style={[styles.footerItem, styles.footerItemSpacing]}>
+          <View style={[styles.footerIcon, styles.trendIcon]}>
+            <TrendingUp size={16} color={COLORS.accent[500]} />
+          </View>
+          <Text style={styles.footerText}>Performance trend</Text>
         </View>
       </View>
-    </Card>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    marginVertical: SPACING.sm,
+  container: {
+    paddingBottom: SPACING.xs,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+  },
+  headingText: {
+    flex: 1,
+    paddingRight: SPACING.md,
   },
   title: {
     fontFamily: FONTS.bold,
     fontSize: 18,
     color: COLORS.gray[900],
+    marginBottom: 4,
   },
   subtitle: {
     fontFamily: FONTS.regular,
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.gray[600],
   },
-  gradeContainer: {
-    backgroundColor: COLORS.gray[100],
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: SPACING.xs,
+  gradeBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    backgroundColor: '#FFFFFF',
   },
   grade: {
     fontFamily: FONTS.bold,
-    fontSize: 24,
+    fontSize: 20,
   },
-  statsContainer: {
+  metaRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginVertical: SPACING.md,
-  },
-  statItem: {
     alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 12,
+    backgroundColor: COLORS.gray[50],
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginTop: SPACING.md,
   },
-  statLabel: {
+  metaItem: {
+    flex: 1,
+    paddingHorizontal: SPACING.xs,
+    alignItems: 'flex-start',
+  },
+  metaLabel: {
     fontFamily: FONTS.regular,
     fontSize: 12,
     color: COLORS.gray[600],
-    marginBottom: 2,
   },
-  statValue: {
+  metaValue: {
     fontFamily: FONTS.bold,
     fontSize: 16,
     color: COLORS.gray[900],
   },
-  progressContainer: {
-    marginVertical: SPACING.sm,
+  metaMax: {
+    fontFamily: FONTS.regular,
+    fontSize: 13,
+    color: COLORS.gray[500],
+  },
+  metaDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: COLORS.gray[200],
+    marginHorizontal: SPACING.sm,
+  },
+  progressSection: {
+    marginTop: SPACING.md,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressLabel: {
+    fontFamily: FONTS.regular,
+    fontSize: 13,
+    color: COLORS.gray[600],
+  },
+  progressValue: {
+    fontFamily: FONTS.bold,
+    fontSize: 16,
+    color: COLORS.gray[900],
   },
   progressBackground: {
-    height: 8,
+    height: 10,
     backgroundColor: COLORS.gray[200],
-    borderRadius: 4,
+    borderRadius: 6,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 6,
   },
   footer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: SPACING.md,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
     paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.gray[200],
   },
-  iconContainer: {
+  footerItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+  footerItemSpacing: {
+    marginLeft: SPACING.lg,
+  },
+  footerIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.gray[100],
+  },
+  analysisIcon: {
+    backgroundColor: COLORS.primary[50],
+  },
+  trendIcon: {
+    backgroundColor: COLORS.accent[50],
+  },
   footerText: {
     fontFamily: FONTS.medium,
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.gray[700],
     marginLeft: SPACING.xs,
   },

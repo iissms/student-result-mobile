@@ -50,8 +50,10 @@ export default function AnalysisScreen() {
     
     return (
       <View style={styles.tabContent}>
-        <PerformanceChart data={mockPerformanceTrends} />
-        
+        <Card padding="large" style={styles.sectionCard}>
+          <PerformanceChart data={mockPerformanceTrends} />
+        </Card>
+
         <Card style={styles.insightCard}>
           <Text style={styles.insightTitle}>Performance Insights</Text>
           
@@ -94,7 +96,9 @@ export default function AnalysisScreen() {
   const renderSubjectsTab = () => {
     return (
       <View style={styles.tabContent}>
-        <SubjectPerformance data={subjectPerformance} />
+        <Card padding="large" style={styles.sectionCard}>
+          <SubjectPerformance data={subjectPerformance} />
+        </Card>
         
         <Card style={styles.recommendationCard}>
           <Text style={styles.recommendationTitle}>Improvement Recommendations</Text>
@@ -266,6 +270,9 @@ const styles = StyleSheet.create({
   },
   tabContent: {
     flex: 1,
+  },
+  sectionCard: {
+    marginBottom: SPACING.md,
   },
   insightCard: {
     marginVertical: SPACING.md,
