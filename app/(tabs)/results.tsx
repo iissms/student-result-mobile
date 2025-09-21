@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, SPACING } from '@/utils/constants';
 import ResultCard from '@/components/results/ResultCard';
 import Header from '@/components/shared/Header';
@@ -18,6 +19,7 @@ import {
   formatDate,
   getGradeColor,
   getGradeFromPercentage,
+  withAlpha,
 } from '@/utils/helpers';
 
 type Subject = {
@@ -199,24 +201,39 @@ export default function ResultsScreen() {
   const classFilter = useMemo<React.ReactElement>(() => {
     if (classesError) {
       return (
-        <View style={styles.filterCard}>
+        <LinearGradient
+          colors={[withAlpha(COLORS.primary[500], 0.12), '#FFFFFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.filterCard}
+        >
           <Text style={styles.filterLabel}>Class</Text>
           <Text style={styles.errorText}>{classesError}</Text>
-        </View>
+        </LinearGradient>
       );
     }
 
     if (!classes.length) {
       return (
-        <View style={styles.filterCard}>
+        <LinearGradient
+          colors={[withAlpha(COLORS.primary[500], 0.12), '#FFFFFF']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.filterCard}
+        >
           <Text style={styles.filterLabel}>Class</Text>
           <Text style={styles.emptyHelperText}>No classes available</Text>
-        </View>
+        </LinearGradient>
       );
     }
 
     return (
-      <View style={styles.filterCard}>
+      <LinearGradient
+        colors={[withAlpha(COLORS.primary[500], 0.12), '#FFFFFF']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.filterCard}
+      >
         <View style={styles.filterHeader}>
           <Text style={styles.filterLabel}>Class</Text>
           {!!activeClass?.academic_year && (
@@ -269,7 +286,7 @@ export default function ResultsScreen() {
             );
           })}
         </ScrollView>
-      </View>
+      </LinearGradient>
     );
   }, [activeClass?.academic_year, classes, classesError, selectedClassId]);
 
@@ -326,7 +343,12 @@ export default function ResultsScreen() {
     const latestExamDate = latestExam?.start_date ? formatDate(latestExam.start_date) : null;
 
     return (
-      <View style={styles.summaryCard}>
+      <LinearGradient
+        colors={[withAlpha(COLORS.primary[500], 0.18), '#FFFFFF']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.summaryCard}
+      >
         <View style={styles.summaryHeader}>
           <View style={styles.summaryTitleGroup}>
             <Text style={styles.summaryEyebrow}>Selected Class</Text>
@@ -337,7 +359,15 @@ export default function ResultsScreen() {
               <Text style={styles.summarySubtitle}>{activeClass.academic_year}</Text>
             )}
           </View>
-          <View style={styles.summaryBadge}>
+          <View
+            style={[
+              styles.summaryBadge,
+              {
+                backgroundColor: withAlpha(COLORS.primary[500], 0.14),
+                borderColor: withAlpha(COLORS.primary[500], 0.28),
+              },
+            ]}
+          >
             <Text style={styles.summaryBadgeLabel}>Average</Text>
             <Text
               style={[
@@ -351,13 +381,27 @@ export default function ResultsScreen() {
           </View>
         </View>
 
-        <View style={styles.summaryMetricsRow}>
+        <View
+          style={[
+            styles.summaryMetricsRow,
+            {
+              backgroundColor: withAlpha(COLORS.primary[500], 0.08),
+              borderColor: withAlpha(COLORS.primary[500], 0.18),
+            },
+          ]}
+        >
           <View style={styles.summaryMetric}>
             <Text style={styles.summaryMetricLabel}>Exams</Text>
             <Text style={styles.summaryMetricValue}>{exams.length}</Text>
             <Text style={styles.summaryMetricHelper}>Completed assessments</Text>
           </View>
-          <View style={[styles.summaryMetric, styles.summaryMetricDivider]}>
+          <View
+            style={[
+              styles.summaryMetric,
+              styles.summaryMetricDivider,
+              { borderLeftColor: withAlpha(COLORS.primary[500], 0.16) },
+            ]}
+          >
             <Text style={styles.summaryMetricLabel}>Best Grade</Text>
             <Text
               style={[
@@ -371,7 +415,13 @@ export default function ResultsScreen() {
               <Text style={styles.summaryMetricHelper}>{bestExam.exam.name}</Text>
             )}
           </View>
-          <View style={[styles.summaryMetric, styles.summaryMetricDivider]}>
+          <View
+            style={[
+              styles.summaryMetric,
+              styles.summaryMetricDivider,
+              { borderLeftColor: withAlpha(COLORS.primary[500], 0.16) },
+            ]}
+          >
             <Text style={styles.summaryMetricLabel}>Subjects</Text>
             <Text style={styles.summaryMetricValue}>{totalSubjects}</Text>
             {!!latestExamDate && (
@@ -379,7 +429,7 @@ export default function ResultsScreen() {
             )}
           </View>
         </View>
-      </View>
+      </LinearGradient>
     );
   }, [activeClass?.academic_year, activeClass?.class_name, exams]);
 
@@ -398,7 +448,7 @@ export default function ResultsScreen() {
     if (resultsError) {
       return (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{resultsError}</Text>
+          <Text style={styles.errorText}>{resultsError}</Text>
         </View>
       );
     }
@@ -474,32 +524,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.xl,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: withAlpha(COLORS.primary[500], 0.08),
     borderRadius: 16,
     marginTop: SPACING.lg,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: withAlpha(COLORS.primary[500], 0.18),
   },
   emptyText: {
     fontSize: 16,
-    color: COLORS.gray[600],
+    color: COLORS.primary[700],
     textAlign: 'center',
   },
   emptyLoadingText: {
     marginTop: SPACING.sm,
   },
   summaryCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: SPACING.lg,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: withAlpha(COLORS.primary[500], 0.2),
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 5,
     marginBottom: SPACING.lg,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -512,30 +563,30 @@ const styles = StyleSheet.create({
   },
   summaryEyebrow: {
     fontSize: 12,
-    color: COLORS.gray[500],
+    color: COLORS.primary[600],
     textTransform: 'uppercase',
     marginBottom: SPACING.xs,
   },
   summaryTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.gray[900],
+    color: COLORS.primary[900],
   },
   summarySubtitle: {
     marginTop: SPACING.xs,
     fontSize: 14,
-    color: COLORS.gray[600],
+    color: COLORS.primary[700],
   },
   summaryBadge: {
     alignItems: 'flex-end',
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.primary[50],
     borderRadius: 14,
+    borderWidth: 1,
   },
   summaryBadgeLabel: {
     fontSize: 12,
-    color: COLORS.gray[600],
+    color: COLORS.primary[600],
     textTransform: 'uppercase',
   },
   summaryBadgeValue: {
@@ -546,11 +597,15 @@ const styles = StyleSheet.create({
   summaryBadgeHelper: {
     marginTop: 2,
     fontSize: 12,
-    color: COLORS.gray[500],
+    color: COLORS.primary[600],
   },
   summaryMetricsRow: {
     flexDirection: 'row',
     marginTop: SPACING.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderRadius: 16,
+    borderWidth: 1,
   },
   summaryMetric: {
     flex: 1,
@@ -558,36 +613,36 @@ const styles = StyleSheet.create({
   summaryMetricDivider: {
     paddingLeft: SPACING.lg,
     borderLeftWidth: 1,
-    borderLeftColor: COLORS.gray[100],
   },
   summaryMetricLabel: {
     fontSize: 13,
-    color: COLORS.gray[600],
+    color: COLORS.primary[700],
     marginBottom: SPACING.xs,
   },
   summaryMetricValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: COLORS.gray[900],
+    color: COLORS.primary[900],
   },
   summaryMetricHelper: {
     marginTop: 2,
     fontSize: 12,
-    color: COLORS.gray[500],
+    color: COLORS.primary[600],
   },
   filterCard: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 16,
     paddingVertical: SPACING.md,
     paddingHorizontal: SPACING.md,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: withAlpha(COLORS.primary[500], 0.18),
     marginBottom: SPACING.md,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.06,
     shadowRadius: 12,
     elevation: 3,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
   },
   filterHeader: {
     flexDirection: 'row',
@@ -598,11 +653,11 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.gray[900],
+    color: COLORS.primary[900],
   },
   filterHelperText: {
     fontSize: 13,
-    color: COLORS.gray[500],
+    color: COLORS.primary[600],
   },
   filterChips: {
     paddingRight: SPACING.md,
@@ -612,28 +667,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: COLORS.gray[200],
+    borderColor: withAlpha(COLORS.primary[500], 0.18),
     marginRight: SPACING.sm,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: withAlpha(COLORS.primary[500], 0.08),
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.06,
     shadowRadius: 10,
     elevation: 2,
   },
   filterChipActive: {
-    backgroundColor: COLORS.primary[50],
+    backgroundColor: withAlpha(COLORS.primary[500], 0.22),
     borderColor: COLORS.primary[400],
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.16,
     elevation: 4,
   },
   filterChipText: {
     fontSize: 14,
-    color: COLORS.gray[800],
+    color: COLORS.primary[700],
     fontWeight: '600',
   },
   filterChipTextActive: {
-    color: COLORS.primary[600],
+    color: COLORS.primary[900],
   },
   filterChipSubText: {
     marginTop: 2,
@@ -641,11 +696,11 @@ const styles = StyleSheet.create({
     color: COLORS.gray[500],
   },
   filterChipSubTextActive: {
-    color: COLORS.primary[500],
+    color: COLORS.primary[600],
   },
   emptyHelperText: {
     fontSize: 14,
-    color: COLORS.gray[500],
+    color: COLORS.primary[600],
   },
   errorText: {
     fontSize: 14,

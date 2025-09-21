@@ -6,6 +6,22 @@ export const getGradeColor = (grade: string) => {
   return GRADE_SCALE[gradeKey]?.color || '#9E9E9E';
 };
 
+export const withAlpha = (hexColor: string, alpha: number): string => {
+  const sanitized = hexColor.replace('#', '');
+
+  if (sanitized.length !== 6) {
+    return hexColor;
+  }
+
+  const clampedAlpha = Math.max(0, Math.min(1, alpha));
+  const alphaHex = Math.round(clampedAlpha * 255)
+    .toString(16)
+    .padStart(2, '0')
+    .toUpperCase();
+
+  return `#${sanitized}${alphaHex}`;
+};
+
 export const getGradeFromPercentage = (percentage: number): string => {
   if (percentage >= 95) return 'A+';
   if (percentage >= 90) return 'A';
