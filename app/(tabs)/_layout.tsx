@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Tabs, useRouter } from 'expo-router';
 import { Platform } from 'react-native';
 import { COLORS, FONTS } from '@/utils/constants';
@@ -9,9 +9,19 @@ export default function TabLayout() {
   const { authState } = useAuth();
   const router = useRouter();
 
+  const redirectingRef = useRef(false);
+
   useEffect(() => {
-    if (!authState.isLoading && !authState.user) {
+    const shouldRedirect = !authState.isLoading && !authState.user;
+
+    if (shouldRedirect && !redirectingRef.current) {
+      redirectingRef.current = true;
       router.replace('/');
+      return;
+    }
+
+    if (!shouldRedirect) {
+      redirectingRef.current = false;
     }
   }, [authState.isLoading, authState.user, router]);
 
