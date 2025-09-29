@@ -1,48 +1,120 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { COLORS, FONTS, SPACING } from '@/utils/constants';
+import {
+  Award,
+  Calendar,
+  FileText,
+  Clock,
+  BookOpen,
+  TrendingUp,
+  School,
+  TriangleAlert as AlertTriangle,
+} from 'lucide-react-native';
+
 import Header from '@/components/shared/Header';
 import Card from '@/components/ui/Card';
-import { Award, Calendar, FileText, Clock, School, TriangleAlert as AlertTriangle } from 'lucide-react-native';
+import { COLORS, FONTS, SPACING } from '@/utils/constants';
+import {
+  calculatePercentage,
+  formatDate,
+  getGradeColor,
+  getGradeFromPercentage,
+  withAlpha,
+} from '@/utils/helpers';
 
-// Helper Functions
-const getGradeFromPercentage = (percent: number): string => {
-  if (percent >= 90) return 'A+';
-  if (percent >= 80) return 'A';
-  if (percent >= 70) return 'B+';
-  if (percent >= 60) return 'B';
-  if (percent >= 50) return 'C';
-  if (percent >= 35) return 'D';
-  return 'F';
+interface Subject {
+  subject_id: number;
+  subject_name: string;
+  subject_code?: string;
+  type?: string;
+  marks_obtained: number;
+  max_marks?: number;
+  marks?: number;
+}
+
+interface Exam {
+  exam_id: number;
+  name: string;
+  start_date?: string;
+  end_date?: string;
+  marks?: number;
+  min_marks?: number;
+  status?: string;
+  class_id?: number;
+  term?: string;
+  subjects?: Subject[];
+}
+
+type SubjectStat = Subject & {
+  maxMarks: number;
+  percentage: number;
+  grade: string;
 };
 
-const getGradeColor = (grade: string): string => {
-  switch (grade) {
-    case 'A+':
-    case 'A':
-      return COLORS.primary[500];
-    case 'B+':
-    case 'B':
-      return COLORS.primary[500];
-    case 'C':
-      return COLORS.warning[500];
-    case 'D':
-      return COLORS.warning[500];
-    default:
-      return COLORS.error[500];
+const formatStatus = (status?: string) => {
+  if (!status) {
+    return 'Pending';
   }
+
+  return status
+    .toString()
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 };
 
-const formatDate = (dateString: string) => {
-  const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
-  return new Date(dateString).toLocaleDateString(undefined, options);
+const formatNumberValue = (value: number) => {
+  if (!Number.isFinite(value)) {
+    return '0';
+  }
+
+  return Number.isInteger(value) ? value.toString() : value.toFixed(1);
+};
+
+const safeFormatDate = (value?: string) => {
+  if (!value) {
+    return 'Not available';
+  }
+
+  const timestamp = Date.parse(value);
+  if (Number.isNaN(timestamp)) {
+    return 'Not available';
+  }
+
+  return formatDate(value);
+};
+
+const getDurationLabel = (start?: string, end?: string) => {
+  if (!start) {
+    return '—';
+  }
+
+  const startDate = new Date(start);
+  const endDate = end ? new Date(end) : startDate;
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return '—';
+  }
+
+  if (endDate.getTime() <= startDate.getTime()) {
+    return '1 day';
+  }
+
+  const diffMs = endDate.getTime() - startDate.getTime();
+  const totalDays = Math.max(1, Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1);
+
+  return `${totalDays} day${totalDays > 1 ? 's' : ''}`;
 };
 
 export default function ResultDetailsScreen() {
-  const { exam: examString } = useLocalSearchParams<{ exam: string }>();
+  const params = useLocalSearchParams<{ exam?: string | string[] }>();
+  const examParamRaw = params.exam;
+  const examParam = Array.isArray(examParamRaw) ? examParamRaw[0] : examParamRaw;
 
-  if (!examString) {
+  if (!examParam) {
     return (
       <View style={styles.container}>
         <Header title="Result Details" showBackButton />
@@ -54,126 +126,362 @@ export default function ResultDetailsScreen() {
     );
   }
 
-  // Parse the exam details
-  const exam = JSON.parse(decodeURIComponent(examString));
+  let exam: Exam | null = null;
 
-  const obtainedMarks = exam.subjects.reduce((sum: number, sub: any) => sum + sub.marks_obtained, 0);
-  const totalMarks = exam.marks || 100;
-  const percentage = Math.round((obtainedMarks / totalMarks) * 100);
+  try {
+    exam = JSON.parse(decodeURIComponent(examParam));
+  } catch (error) {
+    exam = null;
+  }
+
+  if (!exam) {
+    return (
+      <View style={styles.container}>
+        <Header title="Result Details" showBackButton />
+        <View style={styles.notFoundContainer}>
+          <AlertTriangle size={48} color={COLORS.error[500]} />
+          <Text style={styles.notFoundText}>Result not found</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const subjects = Array.isArray(exam.subjects) ? exam.subjects : [];
+
+  const declaredTotal = Number(exam.marks ?? 0);
+  const fallbackTotal = declaredTotal > 0 ? declaredTotal : Math.max(subjects.length, 1) * 100;
+  const totalMarks = fallbackTotal > 0 ? fallbackTotal : 0;
+
+  const obtainedMarks = subjects.reduce((sum, subject) => {
+    const marks = Number(subject.marks_obtained ?? 0);
+    return sum + (Number.isFinite(marks) ? marks : 0);
+  }, 0);
+
+  const percentage = totalMarks > 0 ? calculatePercentage(obtainedMarks, totalMarks) : 0;
   const grade = getGradeFromPercentage(percentage);
+  const gradeColor = getGradeColor(grade);
+  const statusLabel = formatStatus(exam.status);
 
-  // Find strongest and weakest subject
-  const bestSubject = exam.subjects.reduce((prev: any, current: any) => (prev.marks_obtained > current.marks_obtained ? prev : current));
-  const weakestSubject = exam.subjects.reduce((prev: any, current: any) => (prev.marks_obtained < current.marks_obtained ? prev : current));
+  const subjectStats: SubjectStat[] = useMemo(
+    () =>
+      subjects.map(subject => {
+        const candidates = [subject.max_marks, subject.marks, 100];
+        const maxCandidate = candidates.find(candidate => {
+          const numericValue = Number(candidate);
+          return Number.isFinite(numericValue) && numericValue > 0;
+        });
+        const maxMarks = maxCandidate ? Number(maxCandidate) : 100;
+        const obtained = Math.max(0, Number(subject.marks_obtained ?? 0));
+        const percentageValue = maxMarks > 0 ? calculatePercentage(obtained, maxMarks) : 0;
+        const gradeValue = getGradeFromPercentage(percentageValue);
+
+        return {
+          ...subject,
+          marks_obtained: obtained,
+          maxMarks,
+          percentage: percentageValue,
+          grade: gradeValue,
+        };
+      }),
+    [subjects],
+  );
+
+  const bestSubject = subjectStats.length
+    ? subjectStats.reduce((prev, current) => (current.percentage > prev.percentage ? current : prev))
+    : null;
+  const weakestSubject = subjectStats.length
+    ? subjectStats.reduce((prev, current) => (current.percentage < prev.percentage ? current : prev))
+    : null;
+
+  const averageSubjectPercentage = subjectStats.length
+    ? Math.round(
+        subjectStats.reduce((sum, subject) => sum + subject.percentage, 0) / subjectStats.length,
+      )
+    : 0;
+
+  const passMarkRaw = Number(exam.min_marks ?? 0);
+  const hasPassMark = Number.isFinite(passMarkRaw) && passMarkRaw > 0;
+  const passMark = hasPassMark ? passMarkRaw : 0;
+  const hasPassed = hasPassMark ? obtainedMarks >= passMark : percentage >= 35;
+
+  const metrics = [
+    {
+      key: 'score',
+      icon: Award,
+      color: gradeColor,
+      label: 'Score achieved',
+      value:
+        totalMarks > 0
+          ? `${formatNumberValue(obtainedMarks)} / ${formatNumberValue(totalMarks)}`
+          : `${formatNumberValue(obtainedMarks)} marks`,
+      helper: totalMarks > 0 ? `${percentage}% overall` : 'Awaiting total marks',
+    },
+    {
+      key: 'subjects',
+      icon: BookOpen,
+      color: COLORS.primary[500],
+      label: 'Subjects assessed',
+      value: subjects.length ? subjects.length.toString() : '—',
+      helper: bestSubject ? `Top: ${bestSubject.subject_name}` : 'Waiting for subject data',
+    },
+    {
+      key: 'average',
+      icon: TrendingUp,
+      color: COLORS.accent[500],
+      label: 'Average per subject',
+      value: subjectStats.length ? `${averageSubjectPercentage}%` : '—',
+      helper: subjectStats.length ? 'Across all subjects' : 'No breakdown shared yet',
+    },
+    {
+      key: 'pass-mark',
+      icon: School,
+      color: hasPassMark ? (hasPassed ? COLORS.accent[500] : COLORS.warning[500]) : COLORS.gray[500],
+      label: 'Pass mark',
+      value: hasPassMark ? `${formatNumberValue(passMark)} marks` : 'Not provided',
+      helper: hasPassMark
+        ? hasPassed
+          ? 'Requirement met'
+          : 'Below requirement'
+        : 'Check with faculty',
+    },
+  ];
+
+  const durationLabel = getDurationLabel(exam.start_date, exam.end_date);
 
   return (
     <View style={styles.container}>
       <Header title="Result Details" showBackButton />
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <Card style={styles.headerCard}>
-          <Text style={styles.examName}>{exam.name}</Text>
-          <Text style={styles.examTerm}>{exam.status}</Text>
-
-          <View style={styles.gradeContainer}>
-            <View style={styles.gradeCircle}>
-              <Text style={[styles.grade, { color: getGradeColor(grade) }]}>
-                {grade}
-              </Text>
+        <Card padding="large" style={styles.summaryCard}>
+          <View style={styles.summaryHeader}>
+            <View style={styles.summaryTitleBlock}>
+              <Text style={styles.examName}>{exam.name}</Text>
+              {exam.term ? <Text style={styles.examTerm}>{exam.term}</Text> : null}
             </View>
-            <View style={styles.percentageContainer}>
-              <Text style={styles.percentageValue}>{percentage}%</Text>
-              <Text style={styles.percentageLabel}>Overall Score</Text>
+            {statusLabel ? (
+              <View
+                style={[
+                  styles.statusPill,
+                  {
+                    borderColor: withAlpha(gradeColor, 0.35),
+                    backgroundColor: withAlpha(gradeColor, 0.12),
+                  },
+                ]}
+              >
+                <Text style={[styles.statusText, { color: gradeColor }]}>{statusLabel}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          <View style={styles.scoreRow}>
+            <View
+              style={[
+                styles.gradeBadge,
+                {
+                  borderColor: withAlpha(gradeColor, 0.3),
+                  backgroundColor: withAlpha(gradeColor, 0.1),
+                },
+              ]}
+            >
+              <Text style={[styles.gradeText, { color: gradeColor }]}>{grade}</Text>
+              <Text style={[styles.gradeLabel, { color: gradeColor }]}>Grade</Text>
+            </View>
+            <View style={styles.scoreSummary}>
+              <Text style={styles.scoreValue}>{percentage}%</Text>
+              <Text style={styles.scoreCaption}>Overall score</Text>
+              <Text style={styles.scoreMarks}>
+                {formatNumberValue(obtainedMarks)} of {formatNumberValue(totalMarks)} marks
+              </Text>
             </View>
           </View>
 
-          <View style={styles.infoRow}>
-            <View style={styles.infoItem}>
-              <Calendar size={16} color={COLORS.gray[500]} />
-              <Text style={styles.infoText}>Exam Date: {formatDate(exam.start_date)}</Text>
+          <View style={styles.metaRow}>
+            <View style={styles.metaItem}>
+              <View style={[styles.metaIcon, { backgroundColor: withAlpha(COLORS.primary[500], 0.1) }]}>
+                <Calendar size={16} color={COLORS.primary[500]} />
+              </View>
+              <View style={styles.metaContent}>
+                <Text style={styles.metaLabel}>Exam start</Text>
+                <Text style={styles.metaValue}>{safeFormatDate(exam.start_date)}</Text>
+              </View>
             </View>
-            <View style={styles.infoItem}>
-              <FileText size={16} color={COLORS.gray[500]} />
-              <Text style={styles.infoText}>End Date: {formatDate(exam.end_date)}</Text>
+            <View style={styles.metaItem}>
+              <View style={[styles.metaIcon, { backgroundColor: withAlpha(COLORS.accent[500], 0.1) }]}>
+                <FileText size={16} color={COLORS.accent[500]} />
+              </View>
+              <View style={styles.metaContent}>
+                <Text style={styles.metaLabel}>Result released</Text>
+                <Text style={styles.metaValue}>{safeFormatDate(exam.end_date)}</Text>
+              </View>
+            </View>
+            <View style={styles.metaItem}>
+              <View style={[styles.metaIcon, { backgroundColor: withAlpha(COLORS.warning[500], 0.1) }]}>
+                <Clock size={16} color={COLORS.warning[500]} />
+              </View>
+              <View style={styles.metaContent}>
+                <Text style={styles.metaLabel}>Duration</Text>
+                <Text style={styles.metaValue}>{durationLabel}</Text>
+              </View>
             </View>
           </View>
         </Card>
 
-        {/* Subject Breakdown */}
-        <View style={styles.subjectSection}>
-          <Text style={styles.sectionTitle}>Subject Breakdown</Text>
-          {exam.subjects.map((subject: any) => {
-            const subjectPercentage = Math.round((subject.marks_obtained / exam.marks) * 100);
-            const subjectGrade = getGradeFromPercentage(subjectPercentage);
-            return (
-              <View key={subject.subject_id} style={styles.subjectRow}>
-                <View>
-                  <Text style={styles.subjectName}>{subject.subject_name}</Text>
-                  <Text style={styles.subjectType}>{subject.type}</Text>
+        <Card padding="large" variant="filled" style={styles.metricsCard}>
+          <Text style={styles.sectionTitle}>Quick metrics</Text>
+          <Text style={styles.sectionSubtitle}>Key numbers for this exam</Text>
+
+          <View style={styles.metricsGrid}>
+            {metrics.map(metric => (
+              <View
+                key={metric.key}
+                style={[
+                  styles.metricItem,
+                  {
+                    borderColor: withAlpha(metric.color, 0.2),
+                    backgroundColor: '#FFFFFF',
+                  },
+                ]}
+              >
+                <View style={[styles.metricIcon, { backgroundColor: withAlpha(metric.color, 0.12) }]}>
+                  <metric.icon size={16} color={metric.color} />
                 </View>
-                <View style={styles.subjectMarksContainer}>
-                  <Text style={styles.subjectMarks}>
-                    {subject.marks_obtained} / {exam.marks}
+                <Text style={styles.metricLabel}>{metric.label}</Text>
+                <Text style={[styles.metricValue, { color: metric.color }]}>{metric.value}</Text>
+                <Text style={styles.metricHelper}>{metric.helper}</Text>
+              </View>
+            ))}
+          </View>
+        </Card>
+
+        <Card padding="large" style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Subject performance</Text>
+          <Text style={styles.sectionSubtitle}>
+            Detailed breakdown of marks secured in each subject
+          </Text>
+
+          {subjectStats.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                Subject wise marks will appear once shared by your faculty.
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.subjectList}>
+              {subjectStats.map((subject, index) => {
+                const subjectGradeColor = getGradeColor(subject.grade);
+
+                return (
+                  <View
+                    key={subject.subject_id ?? `${subject.subject_name}-${index}`}
+                    style={[
+                      styles.subjectItem,
+                      index !== subjectStats.length - 1 && styles.subjectDivider,
+                    ]}
+                  >
+                    <View style={styles.subjectHeader}>
+                      <View style={styles.subjectTitleBlock}>
+                        <Text style={styles.subjectName}>{subject.subject_name}</Text>
+                        <View style={styles.subjectMetaRow}>
+                          {subject.type ? (
+                            <Text style={styles.subjectTag}>{subject.type}</Text>
+                          ) : null}
+                          <Text style={[styles.subjectPercentage, { color: subjectGradeColor }]}>
+                            {subject.percentage}%
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.subjectScoreBlock}>
+                        <Text style={styles.subjectMarks}>
+                          {formatNumberValue(subject.marks_obtained)} / {formatNumberValue(subject.maxMarks)}
+                        </Text>
+                        <Text style={[styles.subjectGrade, { color: subjectGradeColor }]}>Grade {subject.grade}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[
+                          styles.progressFill,
+                          {
+                            width: `${Math.min(subject.percentage, 100)}%`,
+                            backgroundColor: subjectGradeColor,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </Card>
+
+        <Card padding="large" style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Performance highlights</Text>
+          <Text style={styles.sectionSubtitle}>Quick takeaways from this result</Text>
+
+          <View style={styles.insightList}>
+            {bestSubject ? (
+              <View style={styles.insightItem}>
+                <View style={[styles.insightIcon, { backgroundColor: withAlpha(COLORS.accent[500], 0.12) }]}>
+                  <Award size={18} color={COLORS.accent[500]} />
+                </View>
+                <View style={styles.insightContent}>
+                  <Text style={styles.insightLabel}>Strongest subject</Text>
+                  <Text style={styles.insightValue}>{bestSubject.subject_name}</Text>
+                  <Text style={styles.insightHelper}>
+                    Scored {formatNumberValue(bestSubject.marks_obtained)} / {formatNumberValue(bestSubject.maxMarks)} ({bestSubject.percentage}%).
                   </Text>
-                  <Text style={[styles.subjectGrade, { color: getGradeColor(subjectGrade) }]}>{subjectGrade}</Text>
                 </View>
               </View>
-            );
-          })}
-        </View>
+            ) : null}
 
-        {/* Analytics */}
-        <Card style={styles.analyticsCard}>
-          <Text style={styles.analyticsTitle}>Performance Analytics</Text>
+            {weakestSubject ? (
+              <View style={styles.insightItem}>
+                <View style={[styles.insightIcon, { backgroundColor: withAlpha(COLORS.warning[500], 0.12) }]}>
+                  <AlertTriangle size={18} color={COLORS.warning[500]} />
+                </View>
+                <View style={styles.insightContent}>
+                  <Text style={styles.insightLabel}>Focus area</Text>
+                  <Text style={styles.insightValue}>{weakestSubject.subject_name}</Text>
+                  <Text style={styles.insightHelper}>
+                    {weakestSubject.percentage}% • Grade {weakestSubject.grade}
+                  </Text>
+                </View>
+              </View>
+            ) : null}
 
-          <View style={styles.analyticsItem}>
-            <View style={styles.analyticsIcon}>
-              <Award size={20} color={COLORS.accent[500]} />
-            </View>
-            <View style={styles.analyticsContent}>
-              <Text style={styles.analyticsItemTitle}>Strongest Subject</Text>
-              <Text style={styles.analyticsSubject}>{bestSubject.subject_name}</Text>
-              <Text style={styles.analyticsScore}>
-                Score: {bestSubject.marks_obtained}/{exam.marks} ({getGradeFromPercentage(Math.round((bestSubject.marks_obtained / exam.marks) * 100))})
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.analyticsItem}>
-            <View style={styles.analyticsIcon}>
-              <AlertTriangle size={20} color={COLORS.error[500]} />
-            </View>
-            <View style={styles.analyticsContent}>
-              <Text style={styles.analyticsItemTitle}>Area for Improvement</Text>
-              <Text style={styles.analyticsSubject}>{weakestSubject.subject_name}</Text>
-              <Text style={styles.analyticsScore}>
-                Score: {weakestSubject.marks_obtained}/{exam.marks} ({getGradeFromPercentage(Math.round((weakestSubject.marks_obtained / exam.marks) * 100))})
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.analyticsItem}>
-            <View style={styles.analyticsIcon}>
-              <School size={20} color={COLORS.primary[500]} />
-            </View>
-            <View style={styles.analyticsContent}>
-              <Text style={styles.analyticsItemTitle}>Overall Performance</Text>
-              <Text style={styles.analyticsDescription}>
-                You scored {percentage}% overall with a grade of {grade},
-                which is {percentage > 75 ? 'above' : 'below'} the average.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.analyticsItem}>
-            <View style={styles.analyticsIcon}>
-              <Clock size={20} color={COLORS.primary[500]} />
-            </View>
-            <View style={styles.analyticsContent}>
-              <Text style={styles.analyticsItemTitle}>Performance Over Time</Text>
-              <Text style={styles.analyticsDescription}>
-                Your performance has improved compared to the last examination.
-              </Text>
+            <View style={styles.insightItem}>
+              <View
+                style={[
+                  styles.insightIcon,
+                  {
+                    backgroundColor: withAlpha(
+                      hasPassed ? COLORS.accent[500] : COLORS.warning[500],
+                      0.12,
+                    ),
+                  },
+                ]}
+              >
+                <School
+                  size={18}
+                  color={hasPassed ? COLORS.accent[500] : COLORS.warning[500]}
+                />
+              </View>
+              <View style={styles.insightContent}>
+                <Text style={styles.insightLabel}>Result status</Text>
+                <Text style={styles.insightValue}>
+                  {hasPassMark ? (hasPassed ? 'Passed' : 'Needs attention') : statusLabel}
+                </Text>
+                <Text style={styles.insightHelper}>
+                  {hasPassMark
+                    ? hasPassed
+                      ? `Cleared the pass mark by ${formatNumberValue(obtainedMarks - passMark)} marks.`
+                      : `Requires ${formatNumberValue(passMark - obtainedMarks)} more marks to pass.`
+                    : 'Official status will update once results are confirmed.'}
+                </Text>
+              </View>
             </View>
           </View>
         </Card>
@@ -191,102 +499,235 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: SPACING.md,
+    paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.xxl,
+    paddingTop: SPACING.md,
   },
-  headerCard: {
+  summaryCard: {
+    marginBottom: SPACING.lg,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
+    justifyContent: 'space-between',
+  },
+  summaryTitleBlock: {
+    flex: 1,
+    paddingRight: SPACING.md,
   },
   examName: {
     fontFamily: FONTS.bold,
     fontSize: 20,
     color: COLORS.gray[900],
-    textAlign: 'center',
   },
   examTerm: {
+    marginTop: 4,
     fontFamily: FONTS.regular,
-    fontSize: 16,
+    fontSize: 13,
     color: COLORS.gray[600],
-    textAlign: 'center',
-    marginBottom: SPACING.md,
   },
-  gradeContainer: {
+  statusPill: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  statusText: {
+    fontFamily: FONTS.medium,
+    fontSize: 12,
+    letterSpacing: 0.2,
+  },
+  scoreRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: SPACING.md,
+    marginTop: SPACING.lg,
   },
-  gradeCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: COLORS.gray[100],
-    justifyContent: 'center',
+  gradeBadge: {
+    width: 96,
+    height: 96,
+    borderRadius: 24,
     alignItems: 'center',
-    marginRight: SPACING.md,
+    justifyContent: 'center',
+    borderWidth: 1,
   },
-  grade: {
+  gradeText: {
     fontFamily: FONTS.bold,
-    fontSize: 30,
+    fontSize: 32,
   },
-  percentageContainer: {
-    alignItems: 'flex-start',
+  gradeLabel: {
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    marginTop: 4,
+    letterSpacing: 0.4,
   },
-  percentageValue: {
+  scoreSummary: {
+    flex: 1,
+    marginLeft: SPACING.lg,
+  },
+  scoreValue: {
     fontFamily: FONTS.bold,
-    fontSize: 24,
+    fontSize: 32,
     color: COLORS.gray[900],
   },
-  percentageLabel: {
-    fontFamily: FONTS.regular,
+  scoreCaption: {
+    marginTop: 4,
+    fontFamily: FONTS.medium,
     fontSize: 14,
     color: COLORS.gray[600],
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginTop: SPACING.md,
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  infoText: {
+  scoreMarks: {
+    marginTop: 6,
     fontFamily: FONTS.regular,
-    fontSize: 14,
-    color: COLORS.gray[700],
-    marginLeft: SPACING.xs,
+    fontSize: 13,
+    color: COLORS.gray[500],
   },
-  subjectSection: {
-    marginVertical: SPACING.md,
+  metaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginTop: SPACING.lg,
+  },
+  metaItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginRight: SPACING.sm,
+  },
+  metaIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  metaContent: {
+    flex: 1,
+    marginLeft: SPACING.sm,
+  },
+  metaLabel: {
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.gray[500],
+  },
+  metaValue: {
+    marginTop: 2,
+    fontFamily: FONTS.medium,
+    fontSize: 14,
+    color: COLORS.gray[900],
+  },
+  metricsCard: {
+    marginBottom: SPACING.lg,
   },
   sectionTitle: {
     fontFamily: FONTS.bold,
     fontSize: 18,
     color: COLORS.gray[900],
+  },
+  sectionSubtitle: {
+    marginTop: 4,
+    fontFamily: FONTS.regular,
+    fontSize: 13,
+    color: COLORS.gray[600],
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: SPACING.md,
+    marginHorizontal: -SPACING.sm,
+  },
+  metricItem: {
+    flexGrow: 1,
+    flexShrink: 0,
+    minWidth: 160,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: SPACING.md,
+    marginHorizontal: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  metricIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: SPACING.sm,
   },
-  subjectRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: SPACING.sm,
+  metricLabel: {
+    fontFamily: FONTS.medium,
+    fontSize: 13,
+    color: COLORS.gray[600],
+  },
+  metricValue: {
+    marginTop: 6,
+    fontFamily: FONTS.bold,
+    fontSize: 18,
+  },
+  metricHelper: {
+    marginTop: 4,
+    fontFamily: FONTS.regular,
+    fontSize: 12,
+    color: COLORS.gray[500],
+  },
+  sectionCard: {
+    marginBottom: SPACING.lg,
+  },
+  emptyState: {
+    marginTop: SPACING.md,
+    padding: SPACING.lg,
+    borderRadius: 16,
+    backgroundColor: COLORS.gray[100],
+  },
+  emptyStateText: {
+    fontFamily: FONTS.regular,
+    fontSize: 14,
+    color: COLORS.gray[600],
+    textAlign: 'center',
+  },
+  subjectList: {
+    marginTop: SPACING.md,
+  },
+  subjectItem: {
+    paddingVertical: SPACING.md,
+  },
+  subjectDivider: {
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[200],
+  },
+  subjectHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  subjectTitleBlock: {
+    flex: 1,
+    paddingRight: SPACING.md,
   },
   subjectName: {
     fontFamily: FONTS.medium,
     fontSize: 16,
     color: COLORS.gray[900],
   },
-  subjectType: {
-    fontFamily: FONTS.regular,
+  subjectMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  subjectTag: {
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: COLORS.gray[100],
+    fontFamily: FONTS.medium,
     fontSize: 12,
     color: COLORS.gray[600],
+    marginRight: SPACING.sm,
   },
-  subjectMarksContainer: {
+  subjectPercentage: {
+    fontFamily: FONTS.bold,
+    fontSize: 13,
+  },
+  subjectScoreBlock: {
     alignItems: 'flex-end',
   },
   subjectMarks: {
@@ -295,69 +736,70 @@ const styles = StyleSheet.create({
     color: COLORS.gray[800],
   },
   subjectGrade: {
+    marginTop: 4,
     fontFamily: FONTS.bold,
-    fontSize: 14,
+    fontSize: 13,
   },
-  analyticsCard: {
-    marginVertical: SPACING.md,
+  progressTrack: {
+    height: 6,
+    borderRadius: 6,
+    backgroundColor: COLORS.gray[200],
+    overflow: 'hidden',
+    marginTop: SPACING.sm,
   },
-  analyticsTitle: {
-    fontFamily: FONTS.bold,
-    fontSize: 18,
-    color: COLORS.gray[900],
-    marginBottom: SPACING.md,
+  progressFill: {
+    height: '100%',
+    borderRadius: 6,
   },
-  analyticsItem: {
+  insightList: {
+    marginTop: SPACING.md,
+  },
+  insightItem: {
     flexDirection: 'row',
-    marginBottom: SPACING.md,
-    paddingBottom: SPACING.md,
+    alignItems: 'flex-start',
+    paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray[200],
   },
-  analyticsIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.gray[100],
-    justifyContent: 'center',
+  insightIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
-    marginRight: SPACING.md,
+    justifyContent: 'center',
   },
-  analyticsContent: {
+  insightContent: {
     flex: 1,
+    marginLeft: SPACING.md,
   },
-  analyticsItemTitle: {
+  insightLabel: {
     fontFamily: FONTS.medium,
-    fontSize: 16,
-    color: COLORS.gray[900],
-    marginBottom: 2,
-  },
-  analyticsSubject: {
-    fontFamily: FONTS.bold,
-    fontSize: 14,
-    color: COLORS.gray[800],
-    marginBottom: 2,
-  },
-  analyticsScore: {
-    fontFamily: FONTS.regular,
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.gray[600],
   },
-  analyticsDescription: {
+  insightValue: {
+    marginTop: 2,
+    fontFamily: FONTS.bold,
+    fontSize: 16,
+    color: COLORS.gray[900],
+  },
+  insightHelper: {
+    marginTop: 4,
     fontFamily: FONTS.regular,
-    fontSize: 14,
-    color: COLORS.gray[700],
-    lineHeight: 20,
+    fontSize: 13,
+    color: COLORS.gray[500],
   },
   notFoundContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: SPACING.lg,
   },
   notFoundText: {
     fontFamily: FONTS.medium,
     fontSize: 18,
     color: COLORS.gray[800],
     marginTop: SPACING.md,
+    textAlign: 'center',
   },
 });

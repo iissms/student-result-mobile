@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 import { Platform } from 'react-native';
 import { COLORS, FONTS } from '@/utils/constants';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,7 +9,7 @@ export default function TabLayout() {
   const { authState } = useAuth();
 
   if (!authState.user) {
-    return null;
+    return <Redirect href="/" />;
   }
 
   return (
