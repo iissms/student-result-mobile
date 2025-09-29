@@ -381,17 +381,6 @@ export default function Dashboard() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Performance overview</Text>
-          <Card padding="large" style={styles.sectionCard}>
-            <PerformanceChart
-              data={mockPerformanceTrends}
-              classAverages={classAverages}
-              title=""
-            />
-          </Card>
-        </View>
-
-        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Subject performance</Text>
           <Card padding="large" style={styles.sectionCard}>
             <SubjectPerformance data={subjectPerformance} showTitle={false} />
