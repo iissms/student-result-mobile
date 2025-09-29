@@ -71,6 +71,12 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="(stacks)"
+        options={{
+          href: null,
+        }}
+      />
     </Tabs>
   );
 }
