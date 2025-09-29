@@ -1,5 +1,5 @@
-import React from 'react';
-import { Redirect, Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { Platform } from 'react-native';
 import { COLORS, FONTS } from '@/utils/constants';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,9 +7,16 @@ import { LayoutGrid as LayoutGroup, Chrome as Home, ChartLine as LineChart, User
 
 export default function TabLayout() {
   const { authState } = useAuth();
+  const router = useRouter();
 
-  if (!authState.user) {
-    return <Redirect href="/" />;
+  useEffect(() => {
+    if (!authState.isLoading && !authState.user) {
+      router.replace('/');
+    }
+  }, [authState.isLoading, authState.user, router]);
+
+  if (authState.isLoading || !authState.user) {
+    return null;
   }
 
   return (

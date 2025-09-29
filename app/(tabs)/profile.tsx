@@ -2,22 +2,18 @@ import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView } from 'react-native';
 import { COLORS, FONTS, SPACING } from '@/utils/constants';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'expo-router';
 import Header from '@/components/shared/Header';
 import Card from '@/components/ui/Card';
 import { User, School, Bell, Settings, CircleHelp as HelpCircle, LogOut, Book, Calendar } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const { authState, logout } = useAuth();
-  const router = useRouter();
-  
   if (!authState.user) {
     return null;
   }
   
   const handleLogout = async () => {
     await logout();
-    router.replace('/');
   };
   
   const renderProfileInfo = () => (
