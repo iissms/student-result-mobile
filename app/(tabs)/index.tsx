@@ -7,14 +7,12 @@ import { Calendar, ChevronRight } from 'lucide-react-native';
 
 import { COLORS, FONTS, SPACING } from '@/utils/constants';
 import { useAuth } from '@/contexts/AuthContext';
-import { mockPerformanceTrends, classAverages, subjectPerformance } from '@/utils/mockData';
+import { subjectPerformance } from '@/utils/mockData';
 import ResultsSummary from '@/components/dashboard/ResultsSummary';
-import PerformanceChart from '@/components/dashboard/PerformanceChart';
 import SubjectPerformance from '@/components/dashboard/SubjectPerformance';
 import Header from '@/components/shared/Header';
 import Card from '@/components/ui/Card';
 import { formatDate } from '@/utils/helpers';
-
 export interface Result {
   id: string;
   studentId: string;
