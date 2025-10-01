@@ -243,12 +243,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!authState.user) {
-      router.replace('/');
       return;
     }
 
     fetchAndProcessStudentResults();
-  }, [authState.user, fetchAndProcessStudentResults, router]);
+  }, [authState.user, fetchAndProcessStudentResults]);
 
   useEffect(() => {
     if (!authState.user?.token) {
